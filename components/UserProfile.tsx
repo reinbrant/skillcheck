@@ -128,11 +128,12 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 						</View>
 					</View>
 
-					{/* Achievements */}
+					{/* Achievements or other stuff */}
 					<View style={styles.sectionContainer}>
 						<View style={styles.sectionHeaderRow}>
 							<Text style={styles.sectionTitle}>
 								Achievements
+								{/* can replace with something else */}
 							</Text>
 							<Text style={styles.sectionTitleValue}>
 								0 / ???

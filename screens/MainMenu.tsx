@@ -11,7 +11,13 @@ import { MenuButton } from "../components/MenuButton";
 import { PlayerInfoWidget } from "../components/PlayerInfoWidget";
 import { UserProfile } from "../components/UserProfile";
 
-export const MainMenu = ({ onLogout }: { onLogout: () => void }) => {
+export const MainMenu = ({
+	onLogout,
+	onNavigateToLoadPath,
+}: {
+	onLogout: () => void;
+	onNavigateToLoadPath: () => void;
+}) => {
 	const [isProfileOpen, setIsProfileOpen] = useState(false);
 
 	const userData = {
@@ -52,7 +58,7 @@ export const MainMenu = ({ onLogout }: { onLogout: () => void }) => {
 						/>
 						<MenuButton
 							title="LOAD  PATH"
-							onPress={() => console.log("Load Path")}
+							onPress={() => onNavigateToLoadPath()}
 						/>
 						<MenuButton
 							title="NEW  PATH"

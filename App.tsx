@@ -6,10 +6,14 @@ import { useFonts } from "expo-font";
 import { AnimatedBackground } from "./components/AnimatedBackground";
 import { LoginScreen } from "./screens/LoginScreen";
 import { MainMenu } from "./screens/MainMenu";
+import { LoadPathScreen } from "./screens/LoadPathScreen";
+import { PathDifficultyScreen } from "./screens/PathDifficultyScreen";
+
+type ScreenState = "Login" | "MainMenu" | "LoadPath" | "PathDifficulty";
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
+  const [currentScreen, setCurrentScreen] = useState<ScreenState>("Login");
+  const [selectedPathTitle, setSelectedPathTitle] = useState("");
   const [fontsLoaded] = useFonts({
     BreatheFireIII: require("./assets/fonts/BreatheFireIII.ttf"),
   });
@@ -18,18 +22,50 @@ export default function App() {
     return null;
   }
 
+  const renderScreen = () => {
+    switch (currentScreen) {
+      case "Login":
+        return <LoginScreen onLogin={() => setCurrentScreen("MainMenu")} />;
+      
+      case "MainMenu":
+        return (
+          <MainMenu 
+            onLogout={() => setCurrentScreen("Login")} 
+            onNavigateToLoadPath={() => setCurrentScreen("LoadPath")} 
+          />
+        );
+      
+      case "LoadPath":
+        return (
+          <LoadPathScreen 
+            onBack={() => setCurrentScreen("MainMenu")}
+            onPathSelect={(title: string) => {
+              setSelectedPathTitle(title);
+              setCurrentScreen("PathDifficulty");
+            }}
+          />
+        );
+
+      case "PathDifficulty":
+        return (
+          <PathDifficultyScreen
+            pathTitle={selectedPathTitle}
+            onBack={() => setCurrentScreen("LoadPath")}
+          />
+        )
+        
+      default:
+        return <LoginScreen onLogin={() => setCurrentScreen("MainMenu")} />;
+    }
+  };
+
   return (
     <SafeAreaProvider>
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="light-content" />
 
         <AnimatedBackground />
-
-        {isLoggedIn ? (
-          <MainMenu onLogout={() => setIsLoggedIn(false)} />
-        ) : (
-          <LoginScreen onLogin={() => setIsLoggedIn(true)} />
-        )}
+        {renderScreen()}
 
       </SafeAreaView>
     </SafeAreaProvider>
