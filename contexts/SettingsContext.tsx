@@ -23,7 +23,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({
 	const [isMusicMuted, setIsMusicMuted] = useState(false);
 	const [isAnimationDisabled, setIsAnimationDisabled] = useState(false);
 
-	const audioSource = require("../assets/audio/music/YakaStreams_SkillCheck_BGMusic.mp3");
+	const audioSource = require("../assets/audio/YakaStreams_SkillCheck_BGMusic.mp3");
 	const player = useAudioPlayer(audioSource);
 
 	// Initial config and play trigger
