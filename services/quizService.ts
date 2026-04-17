@@ -66,18 +66,57 @@ export const quizService = {
     return data;
   },
 
-  async submitAttempt(quizId: string, userId: string, score: number) {
-    const { error } = await supabase
-      .from('quiz_attempts')
-      .insert({ quiz_id: quizId, user_id: userId, score });
-      
-    if (error) throw error;
-  },
+  // Note: We added the 'difficulty' parameter here!
+  async submitAttempt(quizId: string, userId: string, sessionScore: number, difficulty: string) {
+    // 1. Explicitly check if they have a row already
+    const { data: existing, error: fetchError } = await supabase
+        .from('quiz_attempts')
+        .select('id, score, completed_difficulties') // Grab the exact ID of the row
+        .eq('quiz_id', quizId)
+        .eq('user_id', userId)
+        .maybeSingle();
 
+    if (fetchError) throw fetchError;
+
+    if (existing) {
+        // 2. They exist! Calculate new totals and explicitly UPDATE
+        const newTotalScore = (existing.score || 0) + sessionScore;
+        const difficulties = existing.completed_difficulties ? [...existing.completed_difficulties] : [];
+        
+        if (!difficulties.includes(difficulty)) {
+            difficulties.push(difficulty);
+        }
+
+        const { error: updateError } = await supabase
+            .from('quiz_attempts')
+            .update({
+                score: newTotalScore,
+                completed_difficulties: difficulties,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', existing.id); // Safe, exact update using the row ID
+
+        if (updateError) throw updateError;
+
+    } else {
+        // 3. They don't exist yet! Explicitly INSERT
+        const { error: insertError } = await supabase
+            .from('quiz_attempts')
+            .insert({
+                quiz_id: quizId,
+                user_id: userId,
+                score: sessionScore,
+                completed_difficulties: [difficulty]
+            });
+
+        if (insertError) throw insertError;
+    }
+  },
+  
   async getLeaderboard(quizId: string) {
     const { data: rawScores, error: rawErr } = await supabase
         .from('quiz_attempts')
-        .select(`score, user_id, auth.users!inner(raw_user_meta_data)`)
+        .select(`score, user_id, profiles!inner(username)`) 
         .eq('quiz_id', quizId)
         .order('score', { ascending: false })
         .limit(20);

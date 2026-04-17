@@ -10,8 +10,7 @@ Your task is to analyze the provided document text and generate a comprehensive 
 3. Every question must have exactly 4 choices.
 4. Distractors (wrong answers) must be highly plausible and test common misconceptions. Avoid obvious throwaway answers or relying on "All of the above".
 5. Provide the correct answer using a 0-based index (0, 1, 2, or 3).
-6. Assign a difficulty level ("easy", "medium", or "hard") based on the complexity of the concept.
-
+6. Assign a difficulty level ("basic", "beginner", "intermediate", or "advanced") based on the complexity of the concept. Generate roughly an equal amount of questions for each difficulty.
 ### EDGE CASES:
 - If the document is NOT about programming, technology, or computer science, return exactly this: { "language": "None", "questions": [] }
 - If the document is completely empty or unintelligible, return exactly this: { "language": "None", "questions": [] }
@@ -27,7 +26,7 @@ Use this exact schema:
       "question": "string",
       "choices": ["string", "string", "string", "string"],
       "correctIndex": number,
-      "difficulty": "easy|medium|hard"
+      "difficulty": "basic|beginner|intermediate|advanced"
     }
   ]
 }

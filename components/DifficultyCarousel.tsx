@@ -3,7 +3,6 @@ import {
 	View,
 	Text,
 	StyleSheet,
-	FlatList,
 	Dimensions,
 	Animated,
 	Pressable,
@@ -22,16 +21,21 @@ interface DifficultyItem {
 	id: string;
 	level: string;
 	title: string;
+	difficultyValue: "basic" | "beginner" | "intermediate" | "advanced"; 
 }
 
 const difficulties: DifficultyItem[] = [
-	{ id: "1", level: "1", title: "Basics" },
-	{ id: "2", level: "2", title: "Beginner" },
-	{ id: "3", level: "3", title: "Intermediate" },
-	{ id: "4", level: "4", title: "Advanced" },
+	// 2. Update the difficultyValue strings to match our new schema
+	{ id: "1", level: "1", title: "Basics", difficultyValue: "basic" },
+	{ id: "2", level: "2", title: "Beginner", difficultyValue: "beginner" },
+	{ id: "3", level: "3", title: "Intermediate", difficultyValue: "intermediate" },
+	{ id: "4", level: "4", title: "Advanced", difficultyValue: "advanced" },
 ];
+// Added the prop interface to bridge the gap with PathDifficultyScreen
+interface DifficultyCarouselProps {
+	onSelectDifficulty: (difficulty: "basic" | "beginner" | "intermediate" | "advanced") => void;
+}
 
-// Helper component for the individual shapes so they can manage their own hover states
 const DifficultyShape = ({
 	item,
 	onPress,
@@ -41,19 +45,13 @@ const DifficultyShape = ({
 }) => {
 	const [isHovered, setIsHovered] = useState(false);
 
-	// Scaled up points mapped to a 220x220 canvas
 	const getPolygonPoints = (level: string) => {
 		switch (level) {
-			case "1": // Triangle
-				return "110,35 195,175 25,175";
-			case "2": // Diamond
-				return "110,20 200,110 110,200 20,110";
-			case "3": // Pentagon
-				return "110,25 200,90 165,190 55,190 20,90";
-			case "4": // Hexagon
-				return "110,20 190,65 190,155 110,200 30,155 30,65";
-			default:
-				return "110,20 200,110 110,200 20,110";
+			case "1": return "110,35 195,175 25,175";
+			case "2": return "110,20 200,110 110,200 20,110";
+			case "3": return "110,25 200,90 165,190 55,190 20,90";
+			case "4": return "110,20 190,65 190,155 110,200 30,155 30,65";
+			default: return "110,20 200,110 110,200 20,110";
 		}
 	};
 
@@ -75,25 +73,18 @@ const DifficultyShape = ({
 		>
 			<Svg height="220" width="220" viewBox="0 0 220 220">
 				<Defs>
-					{/* Main Shape Fill Gradient */}
 					<SvgGradient id="shapeGrad" x1="0" y1="0" x2="0" y2="1">
 						<Stop offset="0" stopColor="#e8c3f0" stopOpacity="1" />
 						<Stop offset="1" stopColor="#b183c7" stopOpacity="1" />
 					</SvgGradient>
 
-                    {/* Border Gradient */}
 					<SvgGradient id="borderGrad" x1="0" y1="0" x2="0" y2="1">
 						<Stop offset="0" stopColor="#ffffff" stopOpacity="1" />
-						<Stop
-							offset="0.5"
-							stopColor="#e8c3f0"
-							stopOpacity="1"
-						/>
+						<Stop offset="0.5" stopColor="#e8c3f0" stopOpacity="1" />
 						<Stop offset="1" stopColor="#9b62b3" stopOpacity="1" />
 					</SvgGradient>
 				</Defs>
 
-				{/* Clones the main shape for the drop shadow effect */}
 				<Polygon
 					points={getPolygonPoints(item.level)}
 					fill="rgba(15, 10, 25, 0.4)"
@@ -103,7 +94,6 @@ const DifficultyShape = ({
 					transform="translate(0, 4)"
 				/>
 
-				{/* Main Polygon */}
 				<Polygon
 					points={getPolygonPoints(item.level)}
 					fill="url(#shapeGrad)"
@@ -120,13 +110,8 @@ const DifficultyShape = ({
 	);
 };
 
-export const DifficultyCarousel = () => {
+export const DifficultyCarousel: React.FC<DifficultyCarouselProps> = ({ onSelectDifficulty }) => {
 	const scrollX = useRef(new Animated.Value(0)).current;
-
-	// TODO: Replace console.log with actual navigation or state updates to reflect selected difficulty
-	const handleDifficultyPress = (title: string) => {
-		console.log(`Difficulty Selected: ${title}`);
-	};
 
 	const renderItem = ({ item }: { item: DifficultyItem }) => {
 		return (
@@ -134,14 +119,16 @@ export const DifficultyCarousel = () => {
 				<View style={styles.shapeContainer}>
 					<DifficultyShape
 						item={item}
-						onPress={() => handleDifficultyPress(item.title)}
+						// Passes the mapped schema value ("easy", "medium", "hard")
+						onPress={() => onSelectDifficulty(item.difficultyValue)}
 					/>
 				</View>
 
 				<View style={styles.buttonWrapper}>
 					<MenuButton
-						title={item.title}
-						onPress={() => handleDifficultyPress(item.title)}
+						title={item.title.toUpperCase()}
+						// Passes the mapped schema value ("easy", "medium", "hard")
+						onPress={() => onSelectDifficulty(item.difficultyValue)}
 						isThin
 					/>
 				</View>

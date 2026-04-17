@@ -1,23 +1,51 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { DifficultyCarousel } from "../components/DifficultyCarousel";
 import { ResultModal } from "../components/ResultModal";
 import { MenuButton } from "../components/MenuButton";
+import { supabase } from "../services/supabase";
 
 interface PathDifficultyScreenProps {
 	onBack: () => void;
 	pathTitle: string;
 	onViewLeaderboard: () => void;
+	onPlay: (difficulty: "easy" | "medium" | "hard") => void;
+	quizId: string;
 }
 
 export const PathDifficultyScreen: React.FC<PathDifficultyScreenProps> = ({
 	onBack,
 	pathTitle,
 	onViewLeaderboard,
+	onPlay,
+	quizId,
 }) => {
 	const [isBackHovered, setIsBackHovered] = useState(false);
-	const progressPercent = 67; // Mock progress
+	const [progressPercent, setProgressPercent] = useState(0);
+
+	useEffect(() => {
+		const fetchProgress = async () => {
+			const { data: { user } } = await supabase.auth.getUser();
+			if (!user) return;
+
+			const { data } = await supabase
+				.from('quiz_attempts')
+				.select('completed_difficulties')
+				.eq('quiz_id', quizId)
+				.eq('user_id', user.id)
+				.maybeSingle();
+
+			if (data && data.completed_difficulties) {
+				const completedCount = data.completed_difficulties.length;
+				// Change the division from 3 to 4!
+				const percent = Math.min(Math.round((completedCount / 4) * 100), 100);
+				setProgressPercent(percent);
+			}
+		};
+
+		fetchProgress();
+	}, [quizId]);
 
 	// Mock states for result modal
 	const [showResult, setShowResult] = useState(false);
@@ -58,7 +86,7 @@ export const PathDifficultyScreen: React.FC<PathDifficultyScreenProps> = ({
 				</View>
 
 				{/* Carousel Component */}
-				<DifficultyCarousel />
+				<DifficultyCarousel onSelectDifficulty={onPlay} />
 
 				{/* Leaderboard Button */}
 				<View style={styles.leaderboardButtonWrapper}>
