@@ -7,6 +7,7 @@ import {
 	Modal,
 	Pressable,
 	TouchableOpacity,
+	DimensionValue,
 } from "react-native";
 
 interface UserProfileProps {
@@ -17,6 +18,15 @@ interface UserProfileProps {
 	level?: number;
 	currentExp?: number;
 	maxExp?: number;
+	stats?: {
+		languages: Record<string, number>;
+		weeklyActivity: {
+			sessions: number;
+			expGained: number;
+			exercisesFinished: number;
+		};
+		achievements: number[];
+	};
 }
 
 export const UserProfile: React.FC<UserProfileProps> = ({
@@ -27,8 +37,18 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 	level = 1,
 	currentExp = 60,
 	maxExp = 100,
+	stats = {
+		languages: {},
+		weeklyActivity: { sessions: 0, expGained: 0, exercisesFinished: 0 },
+		achievements: [],
+	},
 }) => {
 	const expPercentage = (currentExp / maxExp) * 100;
+
+	// Fallback data if languages object is empty from DB
+	const languagesToDisplay = Object.keys(stats.languages).length > 0
+		? Object.entries(stats.languages)
+		: [["Python", 0], ["C", 0]];
 
 	return (
 		<Modal
@@ -81,7 +101,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 							<View
 								style={[
 									styles.slantedBarFill,
-									{ width: `${expPercentage}%` },
+									{ width: `${expPercentage}%` as DimensionValue },
 								]}
 							/>
 						</View>
@@ -102,38 +122,31 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 							Language Progress
 						</Text>
 
-						<View style={styles.progressRow}>
-							<Text style={styles.progressLabel}>Python</Text>
-							<Text style={styles.progressValue}>30%</Text>
-						</View>
-						<View style={styles.languageBarContainer}>
-							<View style={styles.slantedBarBackground} />
-							<View
-								style={[
-									styles.slantedBarFill,
-									{ width: "30%" },
-								]}
-							/>
-						</View>
-
-						<View style={styles.progressRow}>
-							<Text style={styles.progressLabel}>C</Text>
-							<Text style={styles.progressValue}>0%</Text>
-						</View>
-						<View style={styles.languageBarContainer}>
-							<View style={styles.slantedBarBackground} />
-							<View
-								style={[styles.slantedBarFill, { width: "0%" }]}
-							/>
-						</View>
+						{languagesToDisplay.map(([langName, progressValue]) => (
+							<React.Fragment key={langName}>
+								<View style={styles.progressRow}>
+									<Text style={styles.progressLabel}>{langName}</Text>
+									<Text style={styles.progressValue}>{progressValue}%</Text>
+								</View>
+								<View style={styles.languageBarContainer}>
+									<View style={styles.slantedBarBackground} />
+									<View
+										style={[
+											styles.slantedBarFill,
+											{ width: `${progressValue}%` as DimensionValue },
+										]}
+									/>
+								</View>
+							</React.Fragment>
+						))}
 					</View>
 
-					{/* Achievements or other stuff */}
+					{/* Achievements */}
+					{/* Achievements */}
 					<View style={styles.sectionContainer}>
 						<View style={styles.sectionHeaderRow}>
 							<Text style={styles.sectionTitle}>
 								Achievements
-								{/* can replace with something else */}
 							</Text>
 							<Text style={styles.sectionTitleValue}>
 								0 / ???
@@ -141,10 +154,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 						</View>
 						<View style={styles.achievementRow}>
 							{[1, 2, 3, 4, 5, 6].map((item) => (
-								<View
-									key={item}
-									style={styles.hexagonPlaceholder}
-								/>
+								<React.Fragment key={`achievement-${item}`}>
+									<View style={styles.hexagonPlaceholder} />
+								</React.Fragment>
 							))}
 						</View>
 					</View>
@@ -155,17 +167,17 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 
 						<View style={styles.statRow}>
 							<Text style={styles.statLabel}>Sessions</Text>
-							<Text style={styles.statValue}>200</Text>
+							<Text style={styles.statValue}>{stats.weeklyActivity.sessions}</Text>
 						</View>
 						<View style={styles.statRow}>
 							<Text style={styles.statLabel}>EXP Gained</Text>
-							<Text style={styles.statValue}>9000</Text>
+							<Text style={styles.statValue}>{stats.weeklyActivity.expGained}</Text>
 						</View>
 						<View style={styles.statRow}>
 							<Text style={styles.statLabel}>
 								Exercises Finished
 							</Text>
-							<Text style={styles.statValue}>wow so many!</Text>
+							<Text style={styles.statValue}>{stats.weeklyActivity.exercisesFinished}</Text>
 						</View>
 					</View>
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
 	View,
 	Image,
@@ -10,22 +10,51 @@ import {
 import { MenuButton } from "../components/MenuButton";
 import { PlayerInfoWidget } from "../components/PlayerInfoWidget";
 import { UserProfile } from "../components/UserProfile";
+import { supabase } from "../services/supabase";
 
-export const MainMenu = ({
-	onLogout,
-	onNavigateToLoadPath,
-}: {
-	onLogout: () => void;
-	onNavigateToLoadPath: () => void;
-}) => {
+export const MainMenu = ({ onLogout, onNavigateToLoadPath, onNavigateToNewPath }: any) => {
 	const [isProfileOpen, setIsProfileOpen] = useState(false);
-
-	const userData = {
-		username: "USERNAME",
+	const [userData, setUserData] = useState({
+		username: "LOADING...",
 		level: 1,
-		expCurrent: 60,
+		expCurrent: 0,
 		expTotal: 100,
-	};
+		stats: { // Default empty stats to prevent crashes before fetch completes
+			languages: {},
+			weeklyActivity: { sessions: 0, expGained: 0, exercisesFinished: 0 },
+			achievements: []
+		}
+	});
+
+	useEffect(() => {
+		const fetchProfile = async () => {
+			const { data: { user } } = await supabase.auth.getUser();
+			if (!user) return;
+
+			const { data, error } = await supabase
+				.from('profiles')
+				.select('username, exp, level, stats')
+				.eq('id', user.id)
+				.single();
+
+			if (data) {
+				setUserData({
+					username: data.username,
+					level: data.level,
+					expCurrent: data.exp,
+					expTotal: data.level * 100,
+					// Fallback to defaults if stats is somehow null
+					stats: data.stats || {
+						languages: {},
+						weeklyActivity: { sessions: 0, expGained: 0, exercisesFinished: 0 },
+						achievements: []
+					}
+				});
+			}
+		};
+
+		fetchProfile();
+	}, []);
 
 	return (
 		<SafeAreaView style={styles.safeArea}>
@@ -62,7 +91,7 @@ export const MainMenu = ({
 						/>
 						<MenuButton
 							title="NEW  PATH"
-							onPress={() => console.log("New Path")}
+							onPress={() => onNavigateToNewPath()}
 						/>
 						<MenuButton
 							title="SETTINGS"
@@ -80,6 +109,7 @@ export const MainMenu = ({
 					level={userData.level}
 					currentExp={userData.expCurrent}
 					maxExp={userData.expTotal}
+					stats={userData.stats} // Pass the new stats object here
 				/>
 			</View>
 		</SafeAreaView>

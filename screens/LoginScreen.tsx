@@ -1,17 +1,70 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
 import { FontAwesome5, AntDesign } from "@expo/vector-icons";
 import { InputField } from "../components/InputField";
 import { MenuButton } from "../components/MenuButton";
+import { supabase } from "../services/supabase";
 
-export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
-  const [username, setUsername] = useState("");
+export const LoginScreen = () => {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
   const [isRememberMe, setIsRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [username, setUsername] = useState("");
+  
+  // NEW: State to toggle between Login and Sign Up modes
+  const [isSignUpMode, setIsSignUpMode] = useState(false);
 
-  const toggleRememberMe = () => {
-    setIsRememberMe(!isRememberMe);
+  const toggleRememberMe = () => setIsRememberMe(!isRememberMe);
+
+  const handleLogin = async () => {
+    // NEW: Block empty fields
+    if (!email.trim() || !password.trim()) {
+      Alert.alert("Hold Up", "Please enter both an email and a password.");
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) Alert.alert("Login Failed", error.message);
+    setLoading(false);
+  };
+
+  const handleSignUp = async () => {
+    // Validation
+    if (!email.trim() || !password.trim() || !username.trim()) {
+      Alert.alert("Hold Up", "Please fill out all fields.");
+      return;
+    }
+    if (password.length < 6) {
+        Alert.alert("Invalid Password", "Password must be at least 6 characters.");
+        return;
+    }
+
+    setLoading(true);
+    // Pass the username into the user's metadata
+    const { error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+            data: {
+                username: username.trim()
+            }
+        }
+    });
+    
+    if (error) Alert.alert("Sign Up Failed", error.message);
+    else Alert.alert("Success", "Account created successfully!");
+    setLoading(false);
+};
+
+  // NEW: Handle the main button press dynamically
+  const handleSubmit = () => {
+    if (isSignUpMode) {
+      handleSignUp();
+    } else {
+      handleLogin();
+    }
   };
 
   return (
@@ -24,12 +77,18 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
         />
       </View>
 
-      {/* Username and Password Fields */}
       <View style={styles.formContainer}>
         <InputField
           label="Username"
           value={username}
           onChangeText={setUsername}
+          autoCapitalize="none"
+        />
+
+        <InputField
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
           autoCapitalize="none"
         />
 
@@ -40,35 +99,38 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
           secureTextEntry
         />
 
-        {/* Checkbox and Forgot Password Row */}
-        <View style={styles.optionsRow}>
-          <TouchableOpacity
-            style={styles.checkboxRow}
-            onPress={toggleRememberMe}
-            activeOpacity={0.7}
-          >
-            <View
-              style={[styles.checkbox, isRememberMe && styles.checkboxChecked]}
-            >
-              {isRememberMe && (
-                <FontAwesome5 name="check" size={10} color="#1b1429" />
-              )}
+        {/* Hide 'Remember Me' and 'Forgot Password' during Sign Up to make the UI distinct */}
+        {!isSignUpMode && (
+            <View style={styles.optionsRow}>
+            <TouchableOpacity style={styles.checkboxRow} onPress={toggleRememberMe} activeOpacity={0.7}>
+                <View style={[styles.checkbox, isRememberMe && styles.checkboxChecked]}>
+                {isRememberMe && <FontAwesome5 name="check" size={10} color="#1b1429" />}
+                </View>
+                <Text style={[styles.subText, { fontSize: 14 }]}>Remember me</Text>
+            </TouchableOpacity>
+            <TouchableOpacity>
+                <Text style={[styles.subText, { fontSize: 14 }]}>Forgot Password?</Text>
+            </TouchableOpacity>
             </View>
-            <Text style={[styles.subText, { fontSize: 14 }]}>Remember me</Text>
-          </TouchableOpacity>
-          <TouchableOpacity>
-            <Text style={[styles.subText, { fontSize: 14 }]}>Forgot Password?</Text>
-          </TouchableOpacity>
-        </View>
+        )}
 
-        {/* Log In Button */}
-        <View style={{ marginTop: 20 }}>
-          <MenuButton title="LOG IN" isThin onPress={onLogin} />
+        <View style={{ marginTop: isSignUpMode ? 20 : 0 }}>
+          {loading ? (
+             <ActivityIndicator size="large" color="#d8b4e2" />
+          ) : (
+             <MenuButton 
+                title={isSignUpMode ? "CREATE ACCOUNT" : "LOG IN"} 
+                isThin 
+                onPress={handleSubmit} 
+             />
+          )}
         </View>
 
         <View style={styles.separatorRow}>
           <View style={styles.line} />
-          <Text style={styles.subText}>Or login with</Text>
+          <Text style={styles.subText}>
+            {isSignUpMode ? "Or sign up with" : "Or login with"}
+          </Text>
           <View style={styles.line} />
         </View>
 
@@ -86,17 +148,16 @@ export const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
           )}
         </View>
 
-        {/* Sign Up Row */}
         <View style={styles.signUpRow}>
-          <Text style={styles.subText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={() => console.log("Navigate to Sign Up")}>
-            <Text
-              style={[
-                styles.subTextWhite,
-                { fontSize: 20, textShadowRadius: 8 },
-              ]}
-            >
-              Sign Up
+          <Text style={styles.subText}>
+            {isSignUpMode ? "Already have an account? " : "Don't have an account? "}
+          </Text>
+          <TouchableOpacity 
+            onPress={() => setIsSignUpMode(!isSignUpMode)} 
+            disabled={loading}
+          >
+            <Text style={[styles.subTextWhite, { fontSize: 20, textShadowRadius: 8 }]}>
+              {isSignUpMode ? "Log In" : "Sign Up"}
             </Text>
           </TouchableOpacity>
         </View>
