@@ -3,17 +3,19 @@ import {
 	View,
 	Image,
 	StyleSheet,
-	SafeAreaView,
 	Platform,
 	StatusBar,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { MenuButton } from "../components/MenuButton";
 import { PlayerInfoWidget } from "../components/PlayerInfoWidget";
 import { UserProfile } from "../components/UserProfile";
+import { SettingsModal } from "../components/SettingsModal";
 import { supabase } from "../services/supabase";
 
 export const MainMenu = ({ onLogout, onNavigateToLoadPath, onNavigateToNewPath }: any) => {
 	const [isProfileOpen, setIsProfileOpen] = useState(false);
+	const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 	const [userData, setUserData] = useState({
 		username: "LOADING...",
 		level: 1,
@@ -95,7 +97,7 @@ export const MainMenu = ({ onLogout, onNavigateToLoadPath, onNavigateToNewPath }
 						/>
 						<MenuButton
 							title="SETTINGS"
-							onPress={() => console.log("Settings")}
+							onPress={() => setIsSettingsOpen(true)}
 						/>
 					</View>
 				</View>
@@ -110,6 +112,13 @@ export const MainMenu = ({ onLogout, onNavigateToLoadPath, onNavigateToNewPath }
 					currentExp={userData.expCurrent}
 					maxExp={userData.expTotal}
 					stats={userData.stats} // Pass the new stats object here
+				/>
+
+				{/* Settings Modal */}
+				<SettingsModal
+					visible={isSettingsOpen}
+					onClose={() => setIsSettingsOpen(false)}
+					onLogout={onLogout}
 				/>
 			</View>
 		</SafeAreaView>

@@ -11,6 +11,7 @@ import { LoadPathScreen } from "./screens/LoadPathScreen";
 import { PathDifficultyScreen } from "./screens/PathDifficultyScreen";
 import { LeaderboardScreen } from "./screens/Leaderboard";
 import { UploadScreen } from "./screens/UploadScreen"; // New screen
+import { SettingsProvider } from "./contexts/SettingsContext";
 
 type ScreenState =
 	| "Login"
@@ -93,13 +94,15 @@ export default function App() {
 	};
 
 	return (
-		<SafeAreaProvider>
-			<SafeAreaView style={styles.container}>
-				<StatusBar barStyle="light-content" />
-				<AnimatedBackground />
-				{renderScreen()}
-			</SafeAreaView>
-		</SafeAreaProvider>
+		<SettingsProvider>
+			<SafeAreaProvider>
+				<SafeAreaView style={styles.container}>
+					<StatusBar barStyle="light-content" />
+					<AnimatedBackground />
+					{renderScreen()}
+				</SafeAreaView>
+			</SafeAreaProvider>
+		</SettingsProvider>
 	);
 }
 
