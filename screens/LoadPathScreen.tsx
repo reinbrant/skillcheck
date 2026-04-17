@@ -1,30 +1,81 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
   Pressable,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PathContainer, PathItem } from "../components/PathContainer";
+import { supabase } from "../services/supabase";
 
-export const LoadPathScreen = ({ onBack, onPathSelect }: { onBack: () => void; onPathSelect: (title: string) => void }) => {
+// UPDATED: Added `id` to the callback so we know exactly which quiz to load
+export const LoadPathScreen = ({ 
+  onBack, 
+  onPathSelect 
+}: { 
+  onBack: () => void; 
+  onPathSelect: (id: string, title: string) => void 
+}) => {
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [isBackHovered, setIsBackHovered] = useState(false);
+  
+  // New States for Database
+  const [pathsData, setPathsData] = useState<PathItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Mock data
-  const pathsData: PathItem[] = [
-    { id: "1", title: "Python Quiz", itemsCount: 18 },
-    { id: "2", title: "C#", itemsCount: 10 },
-    { id: "3", title: "Assembly Language", itemsCount: 15 },
-    { id: "4", title: "Finals", itemsCount: 20 },
-  ];
+  useEffect(() => {
+    const fetchUserPaths = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-  const handleLoad = (id: string) => console.log(`Loading path: ${id}`);
+        // Fetch all quizzes owned by this user
+        const { data, error } = await supabase
+          .from('quizzes')
+          .select('id, language, quiz_json')
+          .eq('owner_id', user.id)
+          .order('created_at', { ascending: false }); // Newest first
+
+        if (error) throw error;
+
+        if (data) {
+          // Map the database rows into the PathItem shape our UI expects
+          const formattedPaths = data.map((quiz) => ({
+            id: quiz.id,
+            title: quiz.language || "Unknown Path",
+            itemsCount: quiz.quiz_json?.questions?.length || 0,
+          }));
+          
+          setPathsData(formattedPaths);
+        }
+      } catch (error) {
+        console.error("Error fetching paths:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUserPaths();
+  }, []);
+
   const handleRename = (id: string) => console.log(`Trigger Rename for: ${id}`);
   const handleShare = (id: string) => console.log(`Trigger Share for: ${id}`);
-  const handleDelete = (id: string) => console.log(`Trigger Delete for: ${id}`);
+  
+  // Real Delete Functionality
+  const handleDelete = async (id: string) => {
+    try {
+      // Optimistic UI update
+      setPathsData((prev) => prev.filter(path => path.id !== id));
+      
+      // Delete from DB
+      await supabase.from('quizzes').delete().eq('id', id);
+    } catch (error) {
+      console.error("Failed to delete path", error);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -49,49 +100,56 @@ export const LoadPathScreen = ({ onBack, onPathSelect }: { onBack: () => void; o
           <Text style={styles.headerTitle}> CHOOSE  PATH</Text>
         </View>
 
-        {/* List of Paths */}
-        <FlatList
-          data={pathsData}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <PathContainer
-              item={item}
-              isMenuOpen={activeMenuId === item.id}
-              onToggleMenu={() =>
-                setActiveMenuId(activeMenuId === item.id ? null : item.id)
-              }
-              onLoad={() => onPathSelect(item.title)}
-              onRename={() => {
-                handleRename(item.id);
-                setActiveMenuId(null);
-              }}
-              onShare={() => {
-                handleShare(item.id);
-                setActiveMenuId(null);
-              }}
-              onDelete={() => {
-                handleDelete(item.id);
-                setActiveMenuId(null);
-              }}
+        {/* Loading State */}
+        {isLoading ? (
+            <View style={styles.centerContent}>
+                <ActivityIndicator size="large" color="#d8b4e2" />
+            </View>
+        ) : pathsData.length === 0 ? (
+            // Empty State
+            <View style={styles.centerContent}>
+                <Text style={styles.emptyText}>No paths found.</Text>
+                <Text style={styles.emptySubText}>Go to NEW PATH to generate one!</Text>
+            </View>
+        ) : (
+            <FlatList
+            data={pathsData}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+                <PathContainer
+                item={item}
+                isMenuOpen={activeMenuId === item.id}
+                onToggleMenu={() =>
+                    setActiveMenuId(activeMenuId === item.id ? null : item.id)
+                }
+                // UPDATED: Now passing BOTH the ID and the Title back to App.tsx
+                onLoad={() => onPathSelect(item.id, item.title)}
+                onRename={() => {
+                    handleRename(item.id);
+                    setActiveMenuId(null);
+                }}
+                onShare={() => {
+                    handleShare(item.id);
+                    setActiveMenuId(null);
+                }}
+                onDelete={() => {
+                    handleDelete(item.id);
+                    setActiveMenuId(null);
+                }}
+                />
+            )}
             />
-          )}
-        />
+        )}
       </Pressable>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "transparent",
-  },
-  container: {
-    flex: 1,
-    width: "100%",
-  },
+  safeArea: { flex: 1, backgroundColor: "transparent" },
+  container: { flex: 1, width: "100%" },
   header: {
     width: "100%",
     paddingHorizontal: 25,
@@ -100,14 +158,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  backButton: {
-    paddingVertical: 10,
-    paddingRight: 15,
-  },
-  backButtonHovered: {
-    opacity: 0.6,
-    transform: [{ scale: 0.9 }],
-  },
+  backButton: { paddingVertical: 10, paddingRight: 15 },
+  backButtonHovered: { opacity: 0.6, transform: [{ scale: 0.9 }] },
   backArrow: {
     color: "#ffffff",
     fontSize: 28,
@@ -115,13 +167,23 @@ const styles = StyleSheet.create({
     textShadowColor: "#d8b4e2",
     textShadowRadius: 8,
   },
-  headerTitle: {
-    color: "#ffffff",
-    fontFamily: "BreatheFireIII",
-    fontSize: 32,
+  headerTitle: { color: "#ffffff", fontFamily: "BreatheFireIII", fontSize: 32 },
+  listContent: { paddingTop: 10, paddingBottom: 40 },
+  centerContent: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+      paddingBottom: 100,
   },
-  listContent: {
-    paddingTop: 10, 
-    paddingBottom: 40,
+  emptyText: {
+      color: "#d8b4e2",
+      fontFamily: "BreatheFireIII",
+      fontSize: 24,
+      marginBottom: 10,
   },
+  emptySubText: {
+      color: "#8a6b96",
+      fontFamily: "BreatheFireIII",
+      fontSize: 16,
+  }
 });

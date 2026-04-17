@@ -2,15 +2,15 @@ import React, { useState, useEffect } from "react";
 import { StyleSheet, StatusBar } from "react-native";
 import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
 import { useFonts } from "expo-font";
-import { supabase } from "./services/supabase"; // Make sure to create this
-
+import { supabase } from "./services/supabase"; 
 import { AnimatedBackground } from "./components/AnimatedBackground";
 import { LoginScreen } from "./screens/LoginScreen";
 import { MainMenu } from "./screens/MainMenu";
 import { LoadPathScreen } from "./screens/LoadPathScreen";
 import { PathDifficultyScreen } from "./screens/PathDifficultyScreen";
 import { LeaderboardScreen } from "./screens/Leaderboard";
-import { UploadScreen } from "./screens/UploadScreen"; // New screen
+import { UploadScreen } from "./screens/UploadScreen"
+import { GameplayScreen } from "./screens/GameplayScreen";
 import { SettingsProvider } from "./contexts/SettingsContext";
 
 type ScreenState =
@@ -19,11 +19,16 @@ type ScreenState =
 	| "LoadPath"
     | "UploadPath"
 	| "PathDifficulty"
-	| "Leaderboard";
+	| "Leaderboard"
+	| "Gameplay";
 
 export default function App() {
 	const [currentScreen, setCurrentScreen] = useState<ScreenState>("Login");
 	const [selectedPathTitle, setSelectedPathTitle] = useState("");
+
+	const [selectedDifficulty, setSelectedDifficulty] = useState<"easy" | "medium" | "hard">("easy");
+	const [selectedQuizId, setSelectedQuizId] = useState("");
+
 	const [fontsLoaded] = useFonts({
 		BreatheFireIII: require("./assets/fonts/BreatheFireIII.ttf"),
 	});
@@ -60,7 +65,8 @@ export default function App() {
 				return (
 					<LoadPathScreen
 						onBack={() => setCurrentScreen("MainMenu")}
-						onPathSelect={(title: string) => {
+						onPathSelect={(id: string, title: string) => {
+							setSelectedQuizId(id); 
 							setSelectedPathTitle(title);
 							setCurrentScreen("PathDifficulty");
 						}}
@@ -75,9 +81,26 @@ export default function App() {
 			case "PathDifficulty":
 				return (
 					<PathDifficultyScreen
+						quizId={selectedQuizId}
 						pathTitle={selectedPathTitle}
 						onBack={() => setCurrentScreen("LoadPath")}
 						onViewLeaderboard={() => setCurrentScreen("Leaderboard")}
+						// 2. Update the types in the callback
+						onPlay={(difficulty: "basic" | "beginner" | "intermediate" | "advanced") => {
+							setSelectedDifficulty(difficulty);
+							setCurrentScreen("Gameplay");
+						}}
+					/>
+				);
+			case "Gameplay":
+				return (
+					<GameplayScreen
+						quizId={selectedQuizId}
+						pathTitle={selectedPathTitle}
+						difficulty={selectedDifficulty}
+						onBack={() => setCurrentScreen("PathDifficulty")}
+						onSelectLevel={() => setCurrentScreen("LoadPath")}
+						onGoToLeaderboard={() => setCurrentScreen("Leaderboard")}
 					/>
 				);
 			case "Leaderboard":
@@ -85,7 +108,7 @@ export default function App() {
 					<LeaderboardScreen
 						moduleTitle={selectedPathTitle}
 						onBack={() => setCurrentScreen("PathDifficulty")}
-                        quizId="mock-id" // We'll update this later
+						quizId={selectedQuizId} 
 					/>
 				);
 			default:
