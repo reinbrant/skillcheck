@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import * as DocumentPicker from "expo-document-picker";
 import { MenuButton } from "../components/MenuButton";
 import { quizService } from "../services/quizService";
@@ -57,63 +56,61 @@ export const UploadScreen: React.FC<UploadScreenProps> = ({ onBack }) => {
 	};
 
 	return (
-		<SafeAreaView style={styles.safeArea}>
-			<View style={styles.container}>
-				<View style={styles.header}>
-					<Pressable
-						onPress={onBack}
-						onHoverIn={() => setIsBackHovered(true)}
-						onHoverOut={() => setIsBackHovered(false)}
-						style={({ pressed }) => [
-							styles.backButton,
-							(pressed || isBackHovered) && styles.backButtonHovered,
-						]}
-					>
-						<Text style={styles.backArrow}>←</Text>
-					</Pressable>
-					<Text style={styles.headerTitle}> NEW PATH</Text>
-				</View>
+        // Removed SafeAreaView here since App.tsx already handles it
+		<View style={styles.container}>
+			<View style={styles.header}>
+				<Pressable
+					onPress={onBack}
+					onHoverIn={() => setIsBackHovered(true)}
+					onHoverOut={() => setIsBackHovered(false)}
+					style={({ pressed }) => [
+						styles.backButton,
+						(pressed || isBackHovered) && styles.backButtonHovered,
+					]}
+				>
+					<Text style={styles.backArrow}>←</Text>
+				</Pressable>
+				<Text style={styles.headerTitle}> NEW PATH</Text>
+			</View>
 
-				<View style={styles.content}>
-                    <Text style={styles.instructionText}>
-                        Upload a programming document (PDF, DOCX, TXT) to generate your custom path.
-                    </Text>
+			<View style={styles.content}>
+				<Text style={styles.instructionText}>
+					Upload a programming document (PDF, DOCX, TXT) to generate your custom path.
+				</Text>
 
-					<View style={styles.uploadBox}>
-						{fileName ? (
-							<Text style={styles.fileNameText}>{fileName}</Text>
-						) : (
-							<Text style={styles.placeholderText}>No file selected</Text>
-						)}
-					</View>
-
-					{isGenerating ? (
-                        <View style={styles.loadingContainer}>
-                            <ActivityIndicator size="large" color="#d8b4e2" />
-                            <Text style={styles.loadingText}>Synthesizing Knowledge...</Text>
-                        </View>
+				<View style={styles.uploadBox}>
+					{fileName ? (
+						<Text style={styles.fileNameText}>{fileName}</Text>
 					) : (
-						<View style={styles.actionButtons}>
-							<MenuButton title="SELECT FILE" onPress={handlePickDocument} />
-							{fileUri && (
-								<MenuButton title="GENERATE QUIZ" onPress={handleGenerateQuiz} />
-							)}
-						</View>
+						<Text style={styles.placeholderText}>No file selected</Text>
 					)}
 				</View>
+
+				{isGenerating ? (
+					<View style={styles.loadingContainer}>
+						<ActivityIndicator size="large" color="#d8b4e2" />
+						<Text style={styles.loadingText}>Synthesizing Knowledge...</Text>
+					</View>
+				) : (
+					<View style={styles.actionButtons}>
+                        <View style={{ marginBottom: 20 }}>
+						    <MenuButton title="SELECT FILE" onPress={handlePickDocument} />
+                        </View>
+						{fileUri && (
+							<MenuButton title="GENERATE QUIZ" onPress={handleGenerateQuiz} />
+						)}
+					</View>
+				)}
 			</View>
-		</SafeAreaView>
+		</View>
 	);
 };
 
 const styles = StyleSheet.create({
-	safeArea: {
-		flex: 1,
-		backgroundColor: "transparent",
-	},
 	container: {
 		flex: 1,
 		width: "100%",
+        backgroundColor: "transparent",
 	},
 	header: {
 		width: "100%",
@@ -181,7 +178,7 @@ const styles = StyleSheet.create({
 	},
 	actionButtons: {
 		width: "80%",
-		gap: 20,
+        // Removed "gap: 20" here to prevent silent layout crashes
 	},
     loadingContainer: {
         alignItems: "center",

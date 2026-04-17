@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.103.3",
+    "base64-arraybuffer": "^1.0.2",
     "expo": "~54.0.33",
     "expo-document-picker": "~14.0.8",
     "expo-file-system": "~19.0.21",
