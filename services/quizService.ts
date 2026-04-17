@@ -3,30 +3,42 @@ import { generateQuizFromText } from './gemini';
 
 export const quizService = {
   async uploadAndProcessDocument(uri: string, fileName: string, userId: string) {
-    // 1. Upload to Storage
-    const ext = fileName.split('.').pop();
+    // 1. Prepare File Path & Type
+    const ext = fileName.split('.').pop()?.toLowerCase();
     const filePath = `${userId}/${Date.now()}.${ext}`;
-    
-    const formData = new FormData();
-    formData.append('file', { uri, name: fileName, type: `application/${ext}` } as any);
+    const contentType = ext === 'pdf' ? 'application/pdf' 
+                      : ext === 'txt' ? 'text/plain' 
+                      : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
+    // 2. Native fetch to convert the local URI into raw binary data
+    // This completely bypasses base64 memory crashes and the Expo file system
+    const response = await fetch(uri);
+    const arrayBuffer = await response.arrayBuffer();
+
+    // 3. Upload raw ArrayBuffer to Supabase Storage
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('documents')
-      .upload(filePath, formData);
+      .upload(filePath, arrayBuffer, {
+          contentType: contentType,
+      });
 
     if (uploadError) throw uploadError;
 
-    // 2. Trigger Edge Function to extract text
+    // 4. Trigger Edge Function to extract text
     const { data: extracted, error: funcError } = await supabase.functions.invoke('parse-document', {
       body: { filePath: uploadData.path },
     });
 
     if (funcError) throw funcError;
+    
+    if (!extracted?.text) {
+        throw new Error("Failed to extract text. The file might be empty or unreadable.");
+    }
 
-    // 3. Generate Quiz JSON via Gemini
+    // 5. Generate Quiz JSON via Gemini
     const quizJson = await generateQuizFromText(extracted.text);
 
-    // 4. Store in Database
+    // 6. Store in Database
     const { data: quizData, error: dbError } = await supabase
       .from('quizzes')
       .insert({
@@ -39,7 +51,7 @@ export const quizService = {
 
     if (dbError) throw dbError;
 
-    // 5. Return shareable link
+    // 7. Return shareable link
     return `myapp://quiz/${quizData.id}`;
   },
 
@@ -49,6 +61,7 @@ export const quizService = {
       .select('*')
       .eq('id', quizId)
       .single();
+      
     if (error) throw error;
     return data;
   },
@@ -57,15 +70,11 @@ export const quizService = {
     const { error } = await supabase
       .from('quiz_attempts')
       .insert({ quiz_id: quizId, user_id: userId, score });
+      
     if (error) throw error;
   },
 
   async getLeaderboard(quizId: string) {
-    const { data, error } = await supabase
-      .rpc('get_quiz_leaderboard', { p_quiz_id: quizId }); 
-      // Note: Alternative is standard select query with grouping, but Supabase standardizes top scores better via an RPC function or a view. For brevity, assuming direct fetch or view.
-      // Doing standard query using JS formatting if View isn't available:
-    
     const { data: rawScores, error: rawErr } = await supabase
         .from('quiz_attempts')
         .select(`score, user_id, auth.users!inner(raw_user_meta_data)`)

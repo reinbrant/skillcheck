@@ -1,22 +1,31 @@
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY!;
 
 export const generateQuizFromText = async (documentText: string) => {
-  const prompt = `You are an expert programming instructor.
-From the following document text, generate a quiz JSON.
-Requirements:
-1. Detect the programming language discussed
-2. Generate 10–15 multiple choice questions
-3. Each question must have 4 choices
-4. Provide the correct answer (0-3 index)
-5. Assign difficulty: easy | medium | hard
+  const prompt = `You are an expert programming instructor and technical assessment designer. 
+Your task is to analyze the provided document text and generate a comprehensive multiple-choice quiz.
 
-Output ONLY valid JSON in this format:
+### STRICT INSTRUCTIONS:
+1. Detect the primary programming language or technology discussed.
+2. Generate between 10 to 15 questions based STRICTLY on the concepts found in the text. If the text is too short to yield 10 questions, generate as many high-quality questions as the text supports.
+3. Every question must have exactly 4 choices.
+4. Distractors (wrong answers) must be highly plausible and test common misconceptions. Avoid obvious throwaway answers or relying on "All of the above".
+5. Provide the correct answer using a 0-based index (0, 1, 2, or 3).
+6. Assign a difficulty level ("easy", "medium", or "hard") based on the complexity of the concept.
+
+### EDGE CASES:
+- If the document is NOT about programming, technology, or computer science, return exactly this: { "language": "None", "questions": [] }
+- If the document is completely empty or unintelligible, return exactly this: { "language": "None", "questions": [] }
+
+### OUTPUT FORMAT:
+You must output ONLY valid, minified JSON. Do NOT wrap the output in markdown code blocks (e.g., do not use \`\`\`json). Do not include any explanations, greetings, or conversational text. 
+
+Use this exact schema:
 {
   "language": "string",
   "questions": [
     {
       "question": "string",
-      "choices": ["A", "B", "C", "D"],
+      "choices": ["string", "string", "string", "string"],
       "correctIndex": number,
       "difficulty": "easy|medium|hard"
     }
@@ -27,7 +36,7 @@ Document Text:
 ${documentText}`;
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
