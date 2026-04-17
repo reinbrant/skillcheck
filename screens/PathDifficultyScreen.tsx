@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { DifficultyCarousel } from "../components/DifficultyCarousel";
+import { ResultModal } from "../components/ResultModal";
 
 interface PathDifficultyScreenProps {
 	onBack: () => void;
@@ -14,6 +15,10 @@ export const PathDifficultyScreen: React.FC<PathDifficultyScreenProps> = ({
 }) => {
 	const [isBackHovered, setIsBackHovered] = useState(false);
 	const progressPercent = 67; // Mock progress
+
+	// Mock states for result modal
+	const [showResult, setShowResult] = useState(true); // true to show modal, false to hide
+	const [isVictory, setIsVictory] = useState(true); // true for victory, false for defeat
 
 	return (
 		<SafeAreaView style={styles.safeArea}>
@@ -66,6 +71,17 @@ export const PathDifficultyScreen: React.FC<PathDifficultyScreenProps> = ({
 					</View>
 				</View>
 			</View>
+			
+			{/* I put the result modal here only for demonstration; to be actually used in gameplay screens */}
+			<ResultModal 
+				visible={showResult}
+				isVictory={isVictory}
+				score={20}
+				timeLeft={"0:02"}
+				onSelectLevel={() => console.log("return to level select")}
+				onNextOrRetry={() => console.log("next or retry pressed")}
+
+			/>
 		</SafeAreaView>
 	);
 };
