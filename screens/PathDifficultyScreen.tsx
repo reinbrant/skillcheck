@@ -3,22 +3,25 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { DifficultyCarousel } from "../components/DifficultyCarousel";
 import { ResultModal } from "../components/ResultModal";
+import { MenuButton } from "../components/MenuButton";
 
 interface PathDifficultyScreenProps {
 	onBack: () => void;
 	pathTitle: string;
+	onViewLeaderboard: () => void;
 }
 
 export const PathDifficultyScreen: React.FC<PathDifficultyScreenProps> = ({
 	onBack,
 	pathTitle,
+	onViewLeaderboard,
 }) => {
 	const [isBackHovered, setIsBackHovered] = useState(false);
 	const progressPercent = 67; // Mock progress
 
 	// Mock states for result modal
-	const [showResult, setShowResult] = useState(true); // true to show modal, false to hide
-	const [isVictory, setIsVictory] = useState(true); // true for victory, false for defeat
+	const [showResult, setShowResult] = useState(false);
+	const [isVictory, setIsVictory] = useState(true);
 
 	return (
 		<SafeAreaView style={styles.safeArea}>
@@ -37,7 +40,6 @@ export const PathDifficultyScreen: React.FC<PathDifficultyScreenProps> = ({
 
 				{/* Header Section */}
 				<View style={styles.headerSection}>
-					{/* Top Diamond Placeholder */}
 					<View style={styles.topDiamondOuter}>
 						<View style={styles.topDiamondInner}>
 							<Text style={styles.placeholderText}>?</Text>
@@ -46,17 +48,26 @@ export const PathDifficultyScreen: React.FC<PathDifficultyScreenProps> = ({
 
 					{/* Dynamic Path Title */}
 					<Text
-            style={styles.headerTitle}
-            numberOfLines={2}
-            adjustsFontSizeToFit
-            minimumFontScale={0.5}
-            >
+						style={styles.headerTitle}
+						numberOfLines={2}
+						adjustsFontSizeToFit
+						minimumFontScale={0.5}
+					>
 						{pathTitle.toUpperCase()}
 					</Text>
 				</View>
 
 				{/* Carousel Component */}
 				<DifficultyCarousel />
+
+				{/* Leaderboard Button */}
+				<View style={styles.leaderboardButtonWrapper}>
+					<MenuButton
+						title="LEADERBOARD"
+						onPress={onViewLeaderboard}
+						isThin
+					/>
+				</View>
 
 				{/* Bottom Progress Bar */}
 				<View style={styles.progressContainer}>
@@ -71,16 +82,14 @@ export const PathDifficultyScreen: React.FC<PathDifficultyScreenProps> = ({
 					</View>
 				</View>
 			</View>
-			
-			{/* I put the result modal here only for demonstration; to be actually used in gameplay screens */}
-			<ResultModal 
+
+			<ResultModal
 				visible={showResult}
 				isVictory={isVictory}
 				score={20}
 				timeLeft={"0:02"}
 				onSelectLevel={() => console.log("return to level select")}
 				onNextOrRetry={() => console.log("next or retry pressed")}
-
 			/>
 		</SafeAreaView>
 	);
@@ -156,9 +165,19 @@ const styles = StyleSheet.create({
 		textShadowColor: "rgba(216, 180, 226, 0.8)",
 		textShadowOffset: { width: 0, height: 0 },
 		textShadowRadius: 10,
-    textAlign: "center",
-    width: "85%",
+		textAlign: "center",
+		width: "85%",
 	},
+
+	// Leaderboard Button Styles
+	leaderboardButtonWrapper: {
+		position: "absolute",
+		bottom: -60, // Adjust to change button positioning
+		width: "70%",
+		alignSelf: "center",
+		zIndex: 50,
+	},
+
 	progressContainer: {
 		paddingHorizontal: 30,
 		paddingBottom: 40,

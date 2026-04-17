@@ -8,72 +8,94 @@ import { LoginScreen } from "./screens/LoginScreen";
 import { MainMenu } from "./screens/MainMenu";
 import { LoadPathScreen } from "./screens/LoadPathScreen";
 import { PathDifficultyScreen } from "./screens/PathDifficultyScreen";
+import { LeaderboardScreen } from "./screens/Leaderboard";
 
-type ScreenState = "Login" | "MainMenu" | "LoadPath" | "PathDifficulty";
+type ScreenState =
+	| "Login"
+	| "MainMenu"
+	| "LoadPath"
+	| "PathDifficulty"
+	| "Leaderboard";
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<ScreenState>("Login");
-  const [selectedPathTitle, setSelectedPathTitle] = useState("");
-  const [fontsLoaded] = useFonts({
-    BreatheFireIII: require("./assets/fonts/BreatheFireIII.ttf"),
-  });
+	const [currentScreen, setCurrentScreen] = useState<ScreenState>("Login");
+	const [selectedPathTitle, setSelectedPathTitle] = useState("");
+	const [fontsLoaded] = useFonts({
+		BreatheFireIII: require("./assets/fonts/BreatheFireIII.ttf"),
+	});
 
-  if (!fontsLoaded) {
-    return null;
-  }
+	if (!fontsLoaded) {
+		return null;
+	}
 
-  const renderScreen = () => {
-    switch (currentScreen) {
-      case "Login":
-        return <LoginScreen onLogin={() => setCurrentScreen("MainMenu")} />;
-      
-      case "MainMenu":
-        return (
-          <MainMenu 
-            onLogout={() => setCurrentScreen("Login")} 
-            onNavigateToLoadPath={() => setCurrentScreen("LoadPath")} 
-          />
-        );
-      
-      case "LoadPath":
-        return (
-          <LoadPathScreen 
-            onBack={() => setCurrentScreen("MainMenu")}
-            onPathSelect={(title: string) => {
-              setSelectedPathTitle(title);
-              setCurrentScreen("PathDifficulty");
-            }}
-          />
-        );
+	const renderScreen = () => {
+		switch (currentScreen) {
+			case "Login":
+				return (
+					<LoginScreen onLogin={() => setCurrentScreen("MainMenu")} />
+				);
 
-      case "PathDifficulty":
-        return (
-          <PathDifficultyScreen
-            pathTitle={selectedPathTitle}
-            onBack={() => setCurrentScreen("LoadPath")}
-          />
-        )
-        
-      default:
-        return <LoginScreen onLogin={() => setCurrentScreen("MainMenu")} />;
-    }
-  };
+			case "MainMenu":
+				return (
+					<MainMenu
+						onLogout={() => setCurrentScreen("Login")}
+						onNavigateToLoadPath={() =>
+							setCurrentScreen("LoadPath")
+						}
+					/>
+				);
 
-  return (
-    <SafeAreaProvider>
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" />
+			case "LoadPath":
+				return (
+					<LoadPathScreen
+						onBack={() => setCurrentScreen("MainMenu")}
+						onPathSelect={(title: string) => {
+							setSelectedPathTitle(title);
+							setCurrentScreen("PathDifficulty");
+						}}
+					/>
+				);
 
-        <AnimatedBackground />
-        {renderScreen()}
+			case "PathDifficulty":
+				return (
+					<PathDifficultyScreen
+						pathTitle={selectedPathTitle}
+						onBack={() => setCurrentScreen("LoadPath")}
+						onViewLeaderboard={() =>
+							setCurrentScreen("Leaderboard")
+						}
+					/>
+				);
 
-      </SafeAreaView>
-    </SafeAreaProvider>
-  );
+			case "Leaderboard":
+				return (
+					<LeaderboardScreen
+						moduleTitle={selectedPathTitle}
+						onBack={() => setCurrentScreen("PathDifficulty")}
+					/>
+				);
+
+			default:
+				return (
+					<LoginScreen onLogin={() => setCurrentScreen("MainMenu")} />
+				);
+		}
+	};
+
+	return (
+		<SafeAreaProvider>
+			<SafeAreaView style={styles.container}>
+				<StatusBar barStyle="light-content" />
+
+				<AnimatedBackground />
+				{renderScreen()}
+			</SafeAreaView>
+		</SafeAreaProvider>
+	);
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+	container: {
+		flex: 1,
+	},
 });
