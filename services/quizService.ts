@@ -68,10 +68,12 @@ export const quizService = {
 
   // Note: We added the 'difficulty' parameter here!
   async submitAttempt(quizId: string, userId: string, sessionScore: number, difficulty: string) {
-    // 1. Explicitly check if they have a row already
+    // ---------------------------------------------------------
+    // 1. Handle Quiz Attempts (Leaderboard & Quiz Completion)
+    // ---------------------------------------------------------
     const { data: existing, error: fetchError } = await supabase
         .from('quiz_attempts')
-        .select('id, score, completed_difficulties') // Grab the exact ID of the row
+        .select('id, score, completed_difficulties')
         .eq('quiz_id', quizId)
         .eq('user_id', userId)
         .maybeSingle();
@@ -79,13 +81,9 @@ export const quizService = {
     if (fetchError) throw fetchError;
 
     if (existing) {
-        // 2. They exist! Calculate new totals and explicitly UPDATE
         const newTotalScore = (existing.score || 0) + sessionScore;
         const difficulties = existing.completed_difficulties ? [...existing.completed_difficulties] : [];
-        
-        if (!difficulties.includes(difficulty)) {
-            difficulties.push(difficulty);
-        }
+        if (!difficulties.includes(difficulty)) difficulties.push(difficulty);
 
         const { error: updateError } = await supabase
             .from('quiz_attempts')
@@ -94,12 +92,10 @@ export const quizService = {
                 completed_difficulties: difficulties,
                 updated_at: new Date().toISOString()
             })
-            .eq('id', existing.id); // Safe, exact update using the row ID
+            .eq('id', existing.id);
 
         if (updateError) throw updateError;
-
     } else {
-        // 3. They don't exist yet! Explicitly INSERT
         const { error: insertError } = await supabase
             .from('quiz_attempts')
             .insert({
@@ -111,6 +107,93 @@ export const quizService = {
 
         if (insertError) throw insertError;
     }
+
+    // ---------------------------------------------------------
+    // 2. Handle User Progression (EXP, Level Ups, and Stats)
+    // ---------------------------------------------------------
+    
+    // Step A: We need the quiz language to track language mastery
+    const { data: quizData } = await supabase
+        .from('quizzes')
+        .select('language')
+        .eq('id', quizId)
+        .single();
+        
+    const language = quizData?.language || "Unknown";
+
+    // Step B: Fetch the user's current profile data
+    const { data: profile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('exp, level, stats')
+        .eq('id', userId)
+        .single();
+
+    if (profileErr) throw profileErr;
+
+    // Step C: Calculate Level Ups
+    let currentExp = (profile.exp || 0) + sessionScore;
+    let currentLevel = profile.level || 1;
+    let expNeededToLevelUp = currentLevel * 100; // Matches your UI logic!
+
+    // If they gained enough EXP to level up (even multiple times)
+    while (currentExp >= expNeededToLevelUp) {
+        currentExp -= expNeededToLevelUp; // Carry over the remainder
+        currentLevel += 1;
+        expNeededToLevelUp = currentLevel * 100; // Calculate requirement for next level
+    }
+
+    // Step D: Update the complex JSONB Stats object
+    // Provide safe fallbacks just in case the DB has nulls
+    const stats = profile.stats || { 
+        languages: {}, 
+        weeklyActivity: { sessions: 0, expGained: 0, exercisesFinished: 0 }, 
+        achievements: [] 
+    };
+
+    // --- NEW: WEEKLY RESET LOGIC ---
+    const now = new Date();
+    // If they have never played before, pretend their last activity was in 1970
+    const lastActivityStr = stats.weeklyActivity.lastActivityDate;
+    const lastActivity = lastActivityStr ? new Date(lastActivityStr) : new Date(0);
+
+    // Helper function to find the "Monday" of a given date
+    const getMonday = (d: Date) => {
+        const date = new Date(d);
+        const day = date.getDay();
+        const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sundays
+        date.setDate(diff);
+        date.setHours(0, 0, 0, 0);
+        return date.getTime();
+    };
+
+    // If the Monday of this week is newer than the Monday of their last activity, RESET!
+    if (getMonday(now) > getMonday(lastActivity)) {
+        stats.weeklyActivity.sessions = 0;
+        stats.weeklyActivity.expGained = 0;
+        stats.weeklyActivity.exercisesFinished = 0;
+    }
+
+    // Now, add the current session's data
+    stats.weeklyActivity.sessions += 1;
+    stats.weeklyActivity.expGained += sessionScore;
+    stats.weeklyActivity.exercisesFinished += 1;
+    stats.weeklyActivity.lastActivityDate = now.toISOString(); // Stamp it for next time!
+
+    // Update Language Mastery (Flat +10% mastery per completion, capped at 100%)
+    const currentLangProgress = stats.languages[language] || 0;
+    stats.languages[language] = Math.min(currentLangProgress + 10, 100);
+
+    // Step E: Save it all back to the profiles table
+    const { error: profileUpdateErr } = await supabase
+        .from('profiles')
+        .update({
+            exp: currentExp,
+            level: currentLevel,
+            stats: stats
+        })
+        .eq('id', userId);
+
+    if (profileUpdateErr) throw profileUpdateErr;
   },
   
   async getLeaderboard(quizId: string) {
@@ -124,7 +207,7 @@ export const quizService = {
     if (rawErr) throw rawErr;
     return rawScores;
   },
-  
+
   // 1. Generates the deep link string
   getShareableLink(quizId: string) {
     // This creates a link like: skillcheck://quiz/12345...

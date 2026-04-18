@@ -25,7 +25,6 @@ interface UserProfileProps {
 			expGained: number;
 			exercisesFinished: number;
 		};
-		achievements: number[];
 	};
 }
 
@@ -40,7 +39,6 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 	stats = {
 		languages: {},
 		weeklyActivity: { sessions: 0, expGained: 0, exercisesFinished: 0 },
-		achievements: [],
 	},
 }) => {
 	const expPercentage = (currentExp / maxExp) * 100;
@@ -49,6 +47,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 	const languagesToDisplay = Object.keys(stats.languages).length > 0
 		? Object.entries(stats.languages)
 		: [["Python", 0], ["C", 0]];
+
+    // Smoothly close the modal before logging out to prevent visual glitches
+    const handleLogoutAction = () => {
+        onClose();
+        setTimeout(() => {
+            onLogout();
+        }, 300);
+    };
 
 	return (
 		<Modal
@@ -141,26 +147,6 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 						))}
 					</View>
 
-					{/* Achievements */}
-					{/* Achievements */}
-					<View style={styles.sectionContainer}>
-						<View style={styles.sectionHeaderRow}>
-							<Text style={styles.sectionTitle}>
-								Achievements
-							</Text>
-							<Text style={styles.sectionTitleValue}>
-								0 / ???
-							</Text>
-						</View>
-						<View style={styles.achievementRow}>
-							{[1, 2, 3, 4, 5, 6].map((item) => (
-								<React.Fragment key={`achievement-${item}`}>
-									<View style={styles.hexagonPlaceholder} />
-								</React.Fragment>
-							))}
-						</View>
-					</View>
-
 					{/* Activity Section / Stats */}
 					<View style={styles.sectionContainer}>
 						<Text style={styles.sectionTitle}>Weekly Activity</Text>
@@ -183,10 +169,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 
 					{/* Bottom Action Buttons */}
 					<View style={styles.bottomButtonsRow}>
-						{/* Switch Accounts Button */}
+						{/* Switch Accounts Button - Now fully wired! */}
 						<TouchableOpacity
 							style={styles.actionButton}
-							onPress={() => console.log("Switch")}
+							onPress={handleLogoutAction}
 						>
 							<Image
 								source={require("../assets/Button_Texture1.jpg")}
@@ -208,10 +194,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({
 							</Text>
 						</TouchableOpacity>
 
-						{/* Sign Out Button */}
+						{/* Sign Out Button - Now fully wired! */}
 						<TouchableOpacity
 							style={styles.actionButton}
-							onPress={onLogout}
+							onPress={handleLogoutAction}
 						>
 							<Image
 								source={require("../assets/Button_Texture1.jpg")}
@@ -369,17 +355,6 @@ const styles = StyleSheet.create({
 		textShadowOffset: { width: 0, height: 0 },
 		textShadowRadius: 4,
 	},
-	sectionHeaderRow: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		alignItems: "center",
-		marginBottom: 8,
-	},
-	sectionTitleValue: {
-		color: "#ffffff",
-		fontFamily: "BreatheFireIII",
-		fontSize: 16,
-	},
 	progressRow: {
 		flexDirection: "row",
 		justifyContent: "space-between",
@@ -400,17 +375,6 @@ const styles = StyleSheet.create({
 		marginBottom: 12,
 		position: "relative",
 		overflow: "hidden",
-	},
-	achievementRow: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-	},
-	hexagonPlaceholder: {
-		width: 35,
-		height: 35,
-		backgroundColor: "#b08ebd",
-		borderRadius: 6,
-		opacity: 0.8,
 	},
 	statRow: {
 		flexDirection: "row",
