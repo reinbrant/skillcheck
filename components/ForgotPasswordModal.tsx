@@ -24,9 +24,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
 	const [email, setEmail] = useState("");
 
 	const handleSubmitLink = () => {
-		onSubmit(email);
-		setEmail("");
-		// TODO: Add actual password reset logic
+		onSubmit(email); 
 	};
 
 	return (

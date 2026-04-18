@@ -1,83 +1,140 @@
-import React, { useState, useEffect } from "react";
-import { StyleSheet, StatusBar } from "react-native";
-import { SafeAreaView, SafeAreaProvider } from "react-native-safe-area-context";
+import { useState, useEffect } from "react";
+import { StyleSheet, StatusBar, Alert, View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useFonts } from "expo-font";
-import { supabase } from "./services/supabase"; 
-import { AnimatedBackground } from "./components/AnimatedBackground";
+import * as Linking from 'expo-linking';
+
+// Services
+import { supabase } from "./services/supabase";
+import { quizService } from "./services/quizService";
+
+// Screens
 import { LoginScreen } from "./screens/LoginScreen";
 import { MainMenu } from "./screens/MainMenu";
 import { LoadPathScreen } from "./screens/LoadPathScreen";
 import { PathDifficultyScreen } from "./screens/PathDifficultyScreen";
-import { LeaderboardScreen } from "./screens/Leaderboard";
-import { UploadScreen } from "./screens/UploadScreen"
 import { GameplayScreen } from "./screens/GameplayScreen";
-import { SettingsProvider } from "./contexts/SettingsContext";
-
-type ScreenState =
-	| "Login"
-	| "MainMenu"
-	| "LoadPath"
-    | "UploadPath"
-	| "PathDifficulty"
-	| "Leaderboard"
-	| "Gameplay";
+import { LeaderboardScreen } from "./screens/Leaderboard";
+import { ResetPasswordScreen } from "./screens/ResetPasswordScreen";
+import { UploadScreen } from "./screens/UploadScreen"; // <-- 1. Imported UploadScreen
 
 export default function App() {
-	const [currentScreen, setCurrentScreen] = useState<ScreenState>("Login");
-	const [selectedPathTitle, setSelectedPathTitle] = useState("");
-
-	const [selectedDifficulty, setSelectedDifficulty] = useState<"easy" | "medium" | "hard">("easy");
-	const [selectedQuizId, setSelectedQuizId] = useState("");
-
+	// --- Fonts ---
 	const [fontsLoaded] = useFonts({
 		BreatheFireIII: require("./assets/fonts/BreatheFireIII.ttf"),
 	});
 
-    // Check auth state on load
-    useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session) setCurrentScreen("MainMenu");
-        });
+	// --- Global Navigation & App State ---
+	// 2. Added "Upload" to the valid screens list
+	const [currentScreen, setCurrentScreen] = useState<
+		"Login" | "MainMenu" | "LoadPath" | "PathDifficulty" | "Gameplay" | "Leaderboard" | "ResetPassword" | "Upload"
+	>("Login");
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            if (session) setCurrentScreen("MainMenu");
-            else setCurrentScreen("Login");
-        });
+	const [selectedQuizId, setSelectedQuizId] = useState<string>("");
+	const [selectedPathTitle, setSelectedPathTitle] = useState<string>("");
+	const [selectedDifficulty, setSelectedDifficulty] = useState<
+		"basic" | "beginner" | "intermediate" | "advanced"
+	>("basic");
 
-        return () => subscription.unsubscribe();
-    }, []);
+	// --- Supabase Auth Listener ---
+	useEffect(() => {
+		const { data: authListener } = supabase.auth.onAuthStateChange(
+			async (event, session) => {
+				if (event === "PASSWORD_RECOVERY") {
+					setCurrentScreen("ResetPassword");
+				} else if (event === "SIGNED_IN" && currentScreen === "Login") {
+					setCurrentScreen("MainMenu");
+				} else if (event === "SIGNED_OUT") {
+					setCurrentScreen("Login");
+				}
+			}
+		);
 
-	if (!fontsLoaded) return null;
+		return () => {
+			authListener.subscription.unsubscribe();
+		};
+	}, [currentScreen]);
 
+	// --- Deep Link Listener ---
+	const url = Linking.useURL();
+
+	useEffect(() => {
+		const handleDeepLink = async () => {
+			if (!url) return;
+
+			const parsed = Linking.parse(url);
+			
+			if (parsed.path && parsed.path.includes("quiz/")) {
+				const sharedQuizId = parsed.path.replace("quiz/", "");
+				
+				try {
+					const { data: { user } } = await supabase.auth.getUser();
+					if (!user) {
+						Alert.alert("Hold on!", "You need to log in to import this path.");
+						return;
+					}
+
+					Alert.alert("Importing...", "Cloning path to your account.");
+
+					const newQuizId = await quizService.importSharedQuiz(sharedQuizId, user.id);
+					
+					setSelectedQuizId(newQuizId);
+					setSelectedPathTitle("Imported Path"); 
+					setCurrentScreen("PathDifficulty");
+
+				} catch (error: any) {
+					Alert.alert("Import Failed", error.message);
+				}
+			}
+		};
+
+		handleDeepLink();
+	}, [url]);
+
+	// --- Wait for fonts to load ---
+	if (!fontsLoaded) {
+		return <View style={styles.background} />;
+	}
+
+	// --- Screen Router ---
 	const renderScreen = () => {
 		switch (currentScreen) {
 			case "Login":
 				return <LoginScreen />;
+				
 			case "MainMenu":
 				return (
 					<MainMenu
-						onLogout={() => supabase.auth.signOut()}
+						onLogout={async () => {
+							const { error } = await supabase.auth.signOut();
+							if (error) Alert.alert("Logout Error", error.message);
+						}}
 						onNavigateToLoadPath={() => setCurrentScreen("LoadPath")}
-                        onNavigateToNewPath={() => setCurrentScreen("UploadPath")}
+						// 3. Wired up the NEW PATH button to go to the Upload screen
+						onNavigateToNewPath={() => setCurrentScreen("Upload")}
 					/>
 				);
+
+			case "Upload":
+				// 4. Added the Upload route
+				return (
+					<UploadScreen 
+						onBack={() => setCurrentScreen("MainMenu")} 
+					/>
+				);
+
 			case "LoadPath":
 				return (
 					<LoadPathScreen
-						onBack={() => setCurrentScreen("MainMenu")}
 						onPathSelect={(id: string, title: string) => {
-							setSelectedQuizId(id); 
+							setSelectedQuizId(id);
 							setSelectedPathTitle(title);
 							setCurrentScreen("PathDifficulty");
 						}}
+						onBack={() => setCurrentScreen("MainMenu")} 
 					/>
 				);
-            case "UploadPath":
-                return (
-                    <UploadScreen 
-                        onBack={() => setCurrentScreen("MainMenu")} 
-                    />
-                );
+
 			case "PathDifficulty":
 				return (
 					<PathDifficultyScreen
@@ -85,13 +142,13 @@ export default function App() {
 						pathTitle={selectedPathTitle}
 						onBack={() => setCurrentScreen("LoadPath")}
 						onViewLeaderboard={() => setCurrentScreen("Leaderboard")}
-						// 2. Update the types in the callback
 						onPlay={(difficulty: "basic" | "beginner" | "intermediate" | "advanced") => {
 							setSelectedDifficulty(difficulty);
 							setCurrentScreen("Gameplay");
 						}}
 					/>
 				);
+
 			case "Gameplay":
 				return (
 					<GameplayScreen
@@ -103,32 +160,41 @@ export default function App() {
 						onGoToLeaderboard={() => setCurrentScreen("Leaderboard")}
 					/>
 				);
+
 			case "Leaderboard":
 				return (
 					<LeaderboardScreen
-						moduleTitle={selectedPathTitle}
+						quizId={selectedQuizId}
+						pathTitle={selectedPathTitle}
 						onBack={() => setCurrentScreen("PathDifficulty")}
-						quizId={selectedQuizId} 
 					/>
 				);
+
+			case "ResetPassword":
+				return (
+					<ResetPasswordScreen 
+						onPasswordUpdated={() => setCurrentScreen("Login")} 
+					/>
+				);
+
 			default:
 				return <LoginScreen />;
 		}
 	};
 
 	return (
-		<SettingsProvider>
-			<SafeAreaProvider>
-				<SafeAreaView style={styles.container}>
-					<StatusBar barStyle="light-content" />
-					<AnimatedBackground />
-					{renderScreen()}
-				</SafeAreaView>
-			</SafeAreaProvider>
-		</SettingsProvider>
+		<SafeAreaProvider>
+			<StatusBar barStyle="light-content" backgroundColor="#1b1226" />
+			<View style={styles.background}>
+				{renderScreen()}
+			</View>
+		</SafeAreaProvider>
 	);
 }
 
 const styles = StyleSheet.create({
-	container: { flex: 1 },
+	background: {
+		flex: 1,
+		backgroundColor: "#1b1226", 
+	},
 });

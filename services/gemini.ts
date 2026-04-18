@@ -2,30 +2,37 @@ const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY!;
 
 export const generateQuizFromText = async (documentText: string) => {
   const prompt = `You are an expert programming instructor and technical assessment designer. 
-Your task is to analyze the provided document text and generate a comprehensive multiple-choice quiz.
+Your task is to analyze the provided document text and generate a comprehensive assessment.
 
 ### STRICT INSTRUCTIONS:
 1. Detect the primary programming language or technology discussed.
-2. Generate between 10 to 15 questions based STRICTLY on the concepts found in the text. If the text is too short to yield 10 questions, generate as many high-quality questions as the text supports.
-3. Every question must have exactly 4 choices.
-4. Distractors (wrong answers) must be highly plausible and test common misconceptions. Avoid obvious throwaway answers or relying on "All of the above".
-5. Provide the correct answer using a 0-based index (0, 1, 2, or 3).
-6. Assign a difficulty level ("basic", "beginner", "intermediate", or "advanced") based on the complexity of the concept. Generate roughly an equal amount of questions for each difficulty.
+2. Generate between 10 to 15 questions based STRICTLY on the concepts found in the text. 
+3. Include a mix of "multiple-choice" and "fill-in-the-blank" questions.
+4. For multiple-choice: Provide exactly 4 choices and a 0-based correctIndex. Distractors must be highly plausible.
+5. For fill-in-the-blank: Use "___" to represent the blank in the question. The correctAnswer MUST be a single, specific word or short phrase.
+6. Assign a difficulty level ("basic", "beginner", "intermediate", or "advanced"). Generate roughly an equal amount for each difficulty.
+
 ### EDGE CASES:
 - If the document is NOT about programming, technology, or computer science, return exactly this: { "language": "None", "questions": [] }
 - If the document is completely empty or unintelligible, return exactly this: { "language": "None", "questions": [] }
 
 ### OUTPUT FORMAT:
-You must output ONLY valid, minified JSON. Do NOT wrap the output in markdown code blocks (e.g., do not use \`\`\`json). Do not include any explanations, greetings, or conversational text. 
-
-Use this exact schema:
+You must output ONLY valid, minified JSON. Do NOT wrap the output in markdown code blocks. 
+Use this exact schema (mixing the objects in the questions array as needed):
 {
   "language": "string",
   "questions": [
     {
+      "type": "multiple-choice",
       "question": "string",
       "choices": ["string", "string", "string", "string"],
       "correctIndex": number,
+      "difficulty": "basic|beginner|intermediate|advanced"
+    },
+    {
+      "type": "fill-in-the-blank",
+      "question": "string",
+      "correctAnswer": "string",
       "difficulty": "basic|beginner|intermediate|advanced"
     }
   ]

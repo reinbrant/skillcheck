@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
 	View,
 	Text,
@@ -14,13 +14,13 @@ import { quizService } from "../services/quizService";
 
 interface LeaderboardScreenProps {
 	onBack: () => void;
-	moduleTitle: string;
-	quizId: string; // <-- Added this prop
+	pathTitle: string; // <-- FIX 1: Aligned to match App.tsx!
+	quizId: string; 
 }
 
 export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
 	onBack,
-	moduleTitle,
+	pathTitle,
 	quizId,
 }) => {
 	const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
@@ -71,7 +71,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
 
 	const renderItem = ({ item }: { item: any }) => (
 		<View style={styles.rowContainer}>
-			<View style={StyleSheet.absoluteFillObject}>
+			<View style={StyleSheet.absoluteFillObject} pointerEvents="none">
 				<Svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100">
 					<Defs>
 						<SvgGradient id="rowGrad" x1="0" y1="0" x2="1" y2="0">
@@ -99,8 +99,9 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
 				<Pressable onPress={onBack} style={styles.backButton}>
 					<Text style={styles.backArrow}>←</Text>
 				</Pressable>
+				{/* FIX 2: Added a fallback just in case the title is empty */}
 				<Text style={styles.headerTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.5}>
-					{`${moduleTitle.toUpperCase()} LEADERBOARD`}
+					{`${(pathTitle || "PATH").toUpperCase()} LEADERBOARD`}
 				</Text>
 			</View>
 
@@ -110,7 +111,7 @@ export const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({
 				</View>
 
 				<View style={styles.cardInner}>
-					<View style={StyleSheet.absoluteFillObject}>
+					<View style={StyleSheet.absoluteFillObject} pointerEvents="none">
 						<Image source={require("../assets/Button_Texture1.jpg")} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
 						<View style={styles.purpleTintOverlay} />
 					</View>

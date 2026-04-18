@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,10 +6,13 @@ import {
   FlatList,
   Pressable,
   ActivityIndicator,
+  Alert,
+  Share
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PathContainer, PathItem } from "../components/PathContainer";
 import { supabase } from "../services/supabase";
+import { quizService } from "../services/quizService";
 
 // UPDATED: Added `id` to the callback so we know exactly which quiz to load
 export const LoadPathScreen = ({ 
@@ -62,8 +65,16 @@ export const LoadPathScreen = ({
   }, []);
 
   const handleRename = (id: string) => console.log(`Trigger Rename for: ${id}`);
-  const handleShare = (id: string) => console.log(`Trigger Share for: ${id}`);
-  
+  const handleShare = async (id: string) => {
+      const link = quizService.getShareableLink(id);
+      try {
+          await Share.share({
+              message: `Can you beat my score on this path? Play it here: ${link}`,
+          });
+      } catch (error: any) {
+          Alert.alert("Share Error", error.message);
+      }
+  };
   // Real Delete Functionality
   const handleDelete = async (id: string) => {
     try {

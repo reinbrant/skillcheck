@@ -123,5 +123,41 @@ export const quizService = {
 
     if (rawErr) throw rawErr;
     return rawScores;
-  }
+  },
+  
+  // 1. Generates the deep link string
+  getShareableLink(quizId: string) {
+    // This creates a link like: skillcheck://quiz/12345...
+    return `skillcheck://quiz/${quizId}`;
+  },
+
+  // 2. Clones a shared quiz into the current user's account
+  async importSharedQuiz(sharedQuizId: string, currentUserId: string) {
+    // Fetch the original quiz
+    const { data: originalQuiz, error: fetchErr } = await supabase
+        .from('quizzes')
+        .select('*')
+        .eq('id', sharedQuizId)
+        .single();
+
+    if (fetchErr) throw new Error("Could not find that shared quiz.");
+    if (originalQuiz.owner_id === currentUserId) return originalQuiz.id; // Already owns it!
+
+    // Clone it by removing the specific IDs and swapping the owner
+    const newQuiz = {
+        owner_id: currentUserId,
+        language: originalQuiz.language,
+        quiz_json: originalQuiz.quiz_json,
+        // Let updated_at and created_at default themselves
+    };
+
+    const { data: insertedQuiz, error: insertErr } = await supabase
+        .from('quizzes')
+        .insert(newQuiz)
+        .select('id')
+        .single();
+
+    if (insertErr) throw insertErr;
+    return insertedQuiz.id; // Return the NEW cloned ID
+  },
 };

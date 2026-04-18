@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { DifficultyCarousel } from "../components/DifficultyCarousel";
@@ -10,7 +10,7 @@ interface PathDifficultyScreenProps {
 	onBack: () => void;
 	pathTitle: string;
 	onViewLeaderboard: () => void;
-	onPlay: (difficulty: "easy" | "medium" | "hard") => void;
+	onPlay: (difficulty: "basic" | "beginner" | "intermediate" | "advanced") => void;
 	quizId: string;
 }
 

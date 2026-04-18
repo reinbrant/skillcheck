@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { MenuButton } from "../components/MenuButton";

@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, Modal, Image, Pressable } from "react-native";
+import { useState } from "react";
+import { View, Text, StyleSheet, Image, Pressable } from "react-native";
 
 interface ResultModalProps {
 	visible: boolean;
@@ -10,6 +10,59 @@ interface ResultModalProps {
 	onNextOrRetry: () => void;
 }
 
+const MiniButton = ({
+	title,
+	onPress,
+	isPrimary,
+}: {
+	title: string;
+	onPress: () => void;
+	isPrimary?: boolean;
+}) => {
+	const [isHovered, setIsHovered] = useState(false);
+
+	return (
+		<Pressable
+			onPress={onPress}
+			onHoverIn={() => setIsHovered(true)}
+			onHoverOut={() => setIsHovered(false)}
+			style={({ pressed }) => [
+				styles.miniButtonContainer,
+				(pressed || isHovered) && { transform: [{ scale: 0.95 }] },
+			]}
+		>
+			{/* Pointer events "none" prevents the background from blocking the click */}
+			<View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+				<Image
+					source={require("../assets/Button_Texture1.jpg")}
+					style={styles.cardBackground}
+					resizeMode="cover"
+				/>
+				<View
+					style={[
+						styles.purpleTintOverlay,
+						isPrimary
+							? { backgroundColor: "rgba(107, 40, 145, 0.85)" }
+							: { backgroundColor: "rgba(22, 10, 38, 0.95)" },
+					]}
+				/>
+				<View style={styles.textInnerGlow} />
+			</View>
+
+			<View
+				style={[
+					styles.miniButtonInner,
+					isPrimary && styles.miniButtonPrimaryBorder,
+					isHovered && styles.miniButtonHoveredBorder,
+				]}
+				pointerEvents="none"
+			>
+				<Text style={styles.miniButtonText}>{title}</Text>
+			</View>
+		</Pressable>
+	);
+};
+
 export const ResultModal: React.FC<ResultModalProps> = ({
 	visible,
 	isVictory,
@@ -18,67 +71,18 @@ export const ResultModal: React.FC<ResultModalProps> = ({
 	onSelectLevel,
 	onNextOrRetry,
 }) => {
+	// If it's not visible, don't render anything!
+	if (!visible) return null;
+
 	const title = isVictory ? "VICTORY!" : "DEFEAT!";
 	const primaryButtonText = isVictory ? "NEXT" : "RETRY";
 
-	const MiniButton = ({
-		title,
-		onPress,
-		isPrimary,
-	}: {
-		title: string;
-		onPress: () => void;
-		isPrimary?: boolean;
-	}) => {
-		const [isHovered, setIsHovered] = useState(false);
-
-		return (
-			<Pressable
-				onPress={onPress}
-				onHoverIn={() => setIsHovered(true)}
-				onHoverOut={() => setIsHovered(false)}
-				style={({ pressed }) => [
-					styles.miniButtonContainer,
-					(pressed || isHovered) && { transform: [{ scale: 0.95 }] },
-				]}
-			>
-				<View
-					style={[
-						styles.miniButtonInner,
-						isPrimary && styles.miniButtonPrimaryBorder,
-						isHovered && styles.miniButtonHoveredBorder,
-					]}
-				>
-					<Image
-						source={require("../assets/Button_Texture1.jpg")}
-						style={styles.cardBackground}
-						resizeMode="cover"
-					/>
-
-					<View
-						style={[
-							styles.purpleTintOverlay,
-							isPrimary
-								? {
-										backgroundColor:
-											"rgba(107, 40, 145, 0.85)",
-									}
-								: { backgroundColor: "rgba(22, 10, 38, 0.95)" },
-						]}
-					/>
-					<View style={styles.textInnerGlow} />
-
-					<Text style={styles.miniButtonText}>{title}</Text>
-				</View>
-			</Pressable>
-		);
-	};
-
 	return (
-		<Modal visible={visible} transparent animationType="fade">
+		// FIX: We replaced the <Modal> with a high-zIndex absolute view
+		<View style={styles.modalAbsoluteWrapper}>
 			<View style={styles.overlay}>
-				<View style={styles.modalBody}> 
-					<View style={styles.headerZIndex}>
+				<View style={styles.modalBody}>
+					<View style={styles.headerZIndex} pointerEvents="none">
 						<Image
 							source={require("../assets/ResultModal_Header.png")}
 							style={styles.headerImage}
@@ -88,7 +92,7 @@ export const ResultModal: React.FC<ResultModalProps> = ({
 
 					<View style={styles.shadowWrapper}>
 						<View style={styles.cardInner}>
-							<View style={StyleSheet.absoluteFillObject}>
+							<View style={StyleSheet.absoluteFillObject} pointerEvents="none">
 								<Image
 									source={require("../assets/Button_Texture1.jpg")}
 									style={{ width: "100%", height: "100%" }}
@@ -96,40 +100,35 @@ export const ResultModal: React.FC<ResultModalProps> = ({
 								/>
 								<View style={styles.purpleTintOverlay} />
 							</View>
-							{/* Content */}
+
 							<View style={styles.contentContainer}>
 								<Text style={styles.titleText}>{title}</Text>
 
 								<View style={styles.statsContainer}>
-									<Text style={styles.statText}>
-										SCORE: {score}
-									</Text>
-									<Text style={styles.statText}>
-										TIME LEFT: {timeLeft}
-									</Text>
+									<Text style={styles.statText}>SCORE: {score}</Text>
+									<Text style={styles.statText}>TIME LEFT: {timeLeft}</Text>
 								</View>
 
 								<View style={styles.buttonsRow}>
-									<MiniButton
-										title="SELECT LEVEL"
-										onPress={onSelectLevel}
-									/>
-									<MiniButton
-										title={primaryButtonText}
-										onPress={onNextOrRetry}
-										isPrimary
-									/>
+									<MiniButton title="SELECT LEVEL" onPress={onSelectLevel} />
+									<MiniButton title={primaryButtonText} onPress={onNextOrRetry} isPrimary />
 								</View>
 							</View>
 						</View>
 					</View>
 				</View>
 			</View>
-		</Modal>
+		</View>
 	);
 };
 
 const styles = StyleSheet.create({
+	// This wrapper ensures the modal sits on top of everything without causing Native crashes
+	modalAbsoluteWrapper: {
+		...StyleSheet.absoluteFillObject,
+		zIndex: 1000,
+		elevation: 1000,
+	},
 	overlay: {
 		flex: 1,
 		backgroundColor: "rgba(0, 0, 0, 0.85)",
@@ -140,22 +139,19 @@ const styles = StyleSheet.create({
 		width: 350,
 		alignItems: "center",
 	},
-
-	// HEADER (LAYER 2)
 	headerZIndex: {
 		zIndex: 20,
 		elevation: 20,
-		width: 400, // Adjusts header size
-		height: 120, // Adjusts header size
+		width: 400,
+		height: 120,
 	},
 	headerImage: {
 		width: "100%",
 		height: "100%",
 	},
-
 	shadowWrapper: {
-		width: 324, // Container width 
-		marginTop: -60, // Adjust to pull up the card behind the header
+		width: 324,
+		marginTop: -60,
 		zIndex: 10,
 		elevation: 10,
 		shadowColor: "#d8b4e2",
@@ -163,16 +159,14 @@ const styles = StyleSheet.create({
 		shadowOpacity: 0.5,
 		shadowRadius: 20,
 	},
-
-	// INNER CARD (Layer 1)
 	cardInner: {
 		width: "100%",
 		backgroundColor: "#1b1226",
 		borderWidth: 2,
 		borderColor: "#5d3c80",
-		borderTopWidth: 0, // Flat top edge to hide behind header
-		overflow: "hidden", // STRICTLY clips the background texture
-		paddingTop: 55, // Space to push text down from the overlapping diamond
+		borderTopWidth: 0,
+		overflow: "hidden",
+		paddingTop: 55,
 	},
 	cardBackground: {
 		...StyleSheet.absoluteFillObject,
@@ -183,8 +177,6 @@ const styles = StyleSheet.create({
 		...StyleSheet.absoluteFillObject,
 		backgroundColor: "rgba(25, 15, 40, 0.95)",
 	},
-
-	// Content Styles
 	contentContainer: {
 		paddingHorizontal: 25,
 		paddingBottom: 35,
@@ -203,7 +195,7 @@ const styles = StyleSheet.create({
 	statsContainer: {
 		width: "100%",
 		alignItems: "flex-start",
-        paddingLeft: 10,
+		paddingLeft: 10,
 		marginBottom: 40,
 	},
 	statText: {
@@ -215,13 +207,12 @@ const styles = StyleSheet.create({
 		textShadowOffset: { width: 1, height: 1 },
 		textShadowRadius: 2,
 	},
-
-	// Button Styles
 	buttonsRow: {
 		flexDirection: "row",
 		justifyContent: "space-between",
 		width: "100%",
-        marginBottom: -10,
+		marginBottom: -10,
+		zIndex: 5,
 	},
 	miniButtonContainer: {
 		width: "48%",
