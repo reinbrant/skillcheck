@@ -5,27 +5,32 @@ import {
 	StyleSheet,
 	Platform,
 	StatusBar,
+	Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MenuButton } from "../components/MenuButton";
 import { PlayerInfoWidget } from "../components/PlayerInfoWidget";
 import { UserProfile } from "../components/UserProfile";
 import { SettingsModal } from "../components/SettingsModal";
 import { supabase } from "../services/supabase";
 
-export const MainMenu = ({ onLogout, onNavigateToLoadPath, onNavigateToNewPath }: any) => {
+export const MainMenu = ({ onLogout, onNavigateToLoadPath, onNavigateToNewPath, onNavigateToContinue }: any) => {
 	const [isProfileOpen, setIsProfileOpen] = useState(false);
 	const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+	
 	const [userData, setUserData] = useState({
 		username: "LOADING...",
 		level: 1,
 		expCurrent: 0,
 		expTotal: 100,
-		stats: { // Default empty stats to prevent crashes before fetch completes
+		stats: { 
 			languages: {},
 			weeklyActivity: { sessions: 0, expGained: 0, exercisesFinished: 0 },
 			achievements: []
-		}
+		},
+		lastPlayedId: null as string | null,
+		lastPlayedTitle: null as string | null,
 	});
 
 	useEffect(() => {
@@ -39,18 +44,22 @@ export const MainMenu = ({ onLogout, onNavigateToLoadPath, onNavigateToNewPath }
 				.eq('id', user.id)
 				.single();
 
+			const savedId = await AsyncStorage.getItem("last_quiz_id");
+			const savedTitle = await AsyncStorage.getItem("last_quiz_title");
+
 			if (data) {
 				setUserData({
 					username: data.username,
 					level: data.level,
 					expCurrent: data.exp,
 					expTotal: data.level * 100,
-					// Fallback to defaults if stats is somehow null
 					stats: data.stats || {
 						languages: {},
 						weeklyActivity: { sessions: 0, expGained: 0, exercisesFinished: 0 },
 						achievements: []
-					}
+					},
+					lastPlayedId: savedId,
+					lastPlayedTitle: savedTitle,
 				});
 			}
 		};
@@ -83,10 +92,19 @@ export const MainMenu = ({ onLogout, onNavigateToLoadPath, onNavigateToNewPath }
 					</View>
 
 					<View style={styles.menuContainer}>
+						
+						{/* Reverted back to standard MenuButton for perfect consistency */}
 						<MenuButton
-							title="CONTINUE"
-							onPress={() => console.log("Continue")}
+							title={userData.lastPlayedTitle ? `CONTINUE: ${userData.lastPlayedTitle.toUpperCase()}` : "CONTINUE"}
+							onPress={() => {
+								if (userData.lastPlayedId && userData.lastPlayedTitle) {
+									onNavigateToContinue(userData.lastPlayedId, userData.lastPlayedTitle);
+								} else {
+									Alert.alert("No Path Found", "You haven't opened any paths yet. Load or create a new path first!");
+								}
+							}}
 						/>
+
 						<MenuButton
 							title="LOAD  PATH"
 							onPress={() => onNavigateToLoadPath()}
@@ -111,7 +129,7 @@ export const MainMenu = ({ onLogout, onNavigateToLoadPath, onNavigateToNewPath }
 					level={userData.level}
 					currentExp={userData.expCurrent}
 					maxExp={userData.expTotal}
-					stats={userData.stats} // Pass the new stats object here
+					stats={userData.stats} 
 				/>
 
 				{/* Settings Modal */}
@@ -126,42 +144,11 @@ export const MainMenu = ({ onLogout, onNavigateToLoadPath, onNavigateToNewPath }
 };
 
 const styles = StyleSheet.create({
-	safeArea: {
-		flex: 1,
-		paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
-	},
-	container: {
-		flex: 1,
-		alignItems: "center",
-		width: "100%",
-		paddingHorizontal: 15,
-	},
-	topWidgetContainer: {
-		width: "100%",
-		marginTop: 10,
-	},
-	centerContent: {
-		flex: 1,
-		width: "100%",
-		alignItems: "center",
-		justifyContent: "center",
-		paddingBottom: 40,
-	},
-	logoContainer: {
-		marginBottom: 50,
-		alignItems: "center",
-		width: "100%",
-		shadowColor: "#d8b4e2",
-		shadowOffset: { width: 0, height: 0 },
-		shadowOpacity: 0.8,
-		shadowRadius: 20,
-		elevation: 15,
-	},
-	logo: {
-		width: "85%",
-		height: 120,
-	},
-	menuContainer: {
-		width: "75%",
-	},
+	safeArea: { flex: 1, paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0 },
+	container: { flex: 1, alignItems: "center", width: "100%", paddingHorizontal: 15 },
+	topWidgetContainer: { width: "100%", marginTop: 10 },
+	centerContent: { flex: 1, width: "100%", alignItems: "center", justifyContent: "center", paddingBottom: 40 },
+	logoContainer: { marginBottom: 50, alignItems: "center", width: "100%", shadowColor: "#d8b4e2", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 20, elevation: 15 },
+	logo: { width: "85%", height: 120 },
+	menuContainer: { width: "75%" },
 });

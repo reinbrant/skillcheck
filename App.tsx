@@ -3,6 +3,7 @@ import { StyleSheet, StatusBar, Alert, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useFonts } from "expo-font";
 import * as Linking from 'expo-linking';
+import AsyncStorage from "@react-native-async-storage/async-storage"; // <-- Imported AsyncStorage
 
 // Services
 import { supabase } from "./services/supabase";
@@ -16,7 +17,7 @@ import { PathDifficultyScreen } from "./screens/PathDifficultyScreen";
 import { GameplayScreen } from "./screens/GameplayScreen";
 import { LeaderboardScreen } from "./screens/Leaderboard";
 import { ResetPasswordScreen } from "./screens/ResetPasswordScreen";
-import { UploadScreen } from "./screens/UploadScreen"; // <-- 1. Imported UploadScreen
+import { UploadScreen } from "./screens/UploadScreen"; 
 
 export default function App() {
 	// --- Fonts ---
@@ -25,7 +26,6 @@ export default function App() {
 	});
 
 	// --- Global Navigation & App State ---
-	// 2. Added "Upload" to the valid screens list
 	const [currentScreen, setCurrentScreen] = useState<
 		"Login" | "MainMenu" | "LoadPath" | "PathDifficulty" | "Gameplay" | "Leaderboard" | "ResetPassword" | "Upload"
 	>("Login");
@@ -80,6 +80,13 @@ export default function App() {
 					
 					setSelectedQuizId(newQuizId);
 					setSelectedPathTitle("Imported Path"); 
+					
+					// Save to local storage for the Continue button
+					try {
+						await AsyncStorage.setItem("last_quiz_id", newQuizId);
+						await AsyncStorage.setItem("last_quiz_title", "Imported Path");
+					} catch(e) {}
+
 					setCurrentScreen("PathDifficulty");
 
 				} catch (error: any) {
@@ -110,25 +117,39 @@ export default function App() {
 							if (error) Alert.alert("Logout Error", error.message);
 						}}
 						onNavigateToLoadPath={() => setCurrentScreen("LoadPath")}
-						// 3. Wired up the NEW PATH button to go to the Upload screen
 						onNavigateToNewPath={() => setCurrentScreen("Upload")}
+						onNavigateToContinue={(id: string, title: string) => {
+							// Push them directly into the difficulty selector
+							setSelectedQuizId(id);
+							setSelectedPathTitle(title);
+							setCurrentScreen("PathDifficulty");
+						}}
 					/>
 				);
 
 			case "Upload":
-				// 4. Added the Upload route
 				return (
 					<UploadScreen 
 						onBack={() => setCurrentScreen("MainMenu")} 
+						onSuccess={() => setCurrentScreen("LoadPath")} 
 					/>
 				);
 
 			case "LoadPath":
 				return (
 					<LoadPathScreen
-						onPathSelect={(id: string, title: string) => {
+						onPathSelect={async (id: string, title: string) => {
 							setSelectedQuizId(id);
 							setSelectedPathTitle(title);
+							
+							// Save to local storage the moment they open a path
+							try {
+								await AsyncStorage.setItem("last_quiz_id", id);
+								await AsyncStorage.setItem("last_quiz_title", title);
+							} catch (e) {
+								console.error("Failed to save last played", e);
+							}
+
 							setCurrentScreen("PathDifficulty");
 						}}
 						onBack={() => setCurrentScreen("MainMenu")} 
