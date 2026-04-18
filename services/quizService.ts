@@ -243,4 +243,13 @@ export const quizService = {
     if (insertErr) throw insertErr;
     return insertedQuiz.id; // Return the NEW cloned ID
   },
+
+  async deleteQuiz(quizId: string) {
+    const { error } = await supabase
+      .from('quizzes')
+      .delete()
+      .eq('id', quizId);
+
+    if (error) throw error;
+  }
 };

@@ -39,7 +39,7 @@ export const LoadPathScreen = ({
         const { data, error } = await supabase
           .from('quizzes')
           .select('id, language, quiz_json')
-          .eq('owner_id', user.id)
+          // .eq('owner_id', user.id)
           .order('created_at', { ascending: false }); // Newest first
 
         if (error) throw error;
@@ -76,16 +76,36 @@ export const LoadPathScreen = ({
       }
   };
   // Real Delete Functionality
-  const handleDelete = async (id: string) => {
-    try {
-      // Optimistic UI update
-      setPathsData((prev) => prev.filter(path => path.id !== id));
-      
-      // Delete from DB
-      await supabase.from('quizzes').delete().eq('id', id);
-    } catch (error) {
-      console.error("Failed to delete path", error);
-    }
+  const handleDelete = (id: string) => {
+    Alert.alert(
+      "Delete Path",
+      "Are you sure you want to delete this path? This action cannot be undone.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // 1. Optimistically remove from UI
+              setPathsData((prev) => prev.filter((path) => path.id !== id));
+              
+              // 2. Delete from Database via the service
+              await quizService.deleteQuiz(id);
+            } catch (error) {
+              console.error("Failed to delete path", error);
+              Alert.alert("Error", "Could not delete the path. Please try again.");
+              
+              // If it fails, optionally refetch the paths to restore the UI
+              // fetchUserPaths(); 
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (

@@ -7,6 +7,7 @@ import {
 	TouchableOpacity,
 	Alert,
 	ActivityIndicator,
+	KeyboardAvoidingView
 } from "react-native";
 import { FontAwesome5 } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -77,8 +78,16 @@ export const LoginScreen = () => {
 			Alert.alert("Hold Up", "Please fill out all fields.");
 			return;
 		}
-		if (password.length < 6) {
-			Alert.alert("Invalid Password", "Password must be at least 6 characters.");
+
+		// --- Password Regex Validation ---
+		// Requires: Minimum 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
+		const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+		
+		if (!passwordRegex.test(password)) {
+			Alert.alert(
+				"Weak Password", 
+				"Password must be at least 8 characters long and include an uppercase letter, a lowercase letter, a number, and a special character."
+			);
 			return;
 		}
 
@@ -128,89 +137,91 @@ export const LoginScreen = () => {
 	};
 
 	return (
-		<View style={styles.container}>
-			<View style={styles.logoContainer}>
-				<Image
-					source={require("../assets/SkillCheck_Logo_v1.png")}
-					style={styles.logo}
-					resizeMode="contain"
-				/>
-			</View>
-
-			<View style={styles.formContainer}>
-				{/* CONDITIONAL USERNAME: Only shows for Sign Up */}
-				{isSignUpMode && (
-					<InputField
-						label="Username"
-						value={username}
-						onChangeText={setUsername}
-						autoCapitalize="none"
+		<KeyboardAvoidingView>
+			<View style={styles.container}>
+				<View style={styles.logoContainer}>
+					<Image
+						source={require("../assets/SkillCheck_Logo_v1.png")}
+						style={styles.logo}
+						resizeMode="contain"
 					/>
-				)}
+				</View>
 
-				<InputField
-					label="Email"
-					value={email}
-					onChangeText={setEmail}
-					autoCapitalize="none"
-				/>
-
-				<InputField
-					label="Password"
-					value={password}
-					onChangeText={setPassword}
-					secureTextEntry
-				/>
-
-				{/* Hide 'Remember Me' and 'Forgot Password' during Sign Up */}
-				{!isSignUpMode && (
-					<View style={styles.optionsRow}>
-						<TouchableOpacity
-							style={styles.checkboxRow}
-							onPress={toggleRememberMe}
-							activeOpacity={0.7}
-						>
-							<View style={[styles.checkbox, isRememberMe && styles.checkboxChecked]}>
-								{isRememberMe && <FontAwesome5 name="check" size={10} color="#1b1429" />}
-							</View>
-							<Text style={[styles.subText, { fontSize: 14 }]}>Remember me</Text>
-						</TouchableOpacity>
-						<TouchableOpacity onPress={() => setIsForgotPasswordOpen(true)}>
-							<Text style={[styles.subText, { fontSize: 14 }]}>Forgot Password?</Text>
-						</TouchableOpacity>
-					</View>
-				)}
-
-				<View style={{ marginTop: isSignUpMode ? 20 : 0, marginBottom: 30 }}>
-					{loading ? (
-						<ActivityIndicator size="large" color="#d8b4e2" />
-					) : (
-						<MenuButton
-							title={isSignUpMode ? "CREATE ACCOUNT" : "LOG IN"}
-							isThin
-							onPress={handleSubmit}
+				<View style={styles.formContainer}>
+					{/* CONDITIONAL USERNAME: Only shows for Sign Up */}
+					{isSignUpMode && (
+						<InputField
+							label="Username"
+							value={username}
+							onChangeText={setUsername}
+							autoCapitalize="none"
 						/>
 					)}
-				</View>
 
-				<View style={styles.signUpRow}>
-					<Text style={styles.subText}>
-						{isSignUpMode ? "Already have an account? " : "Don't have an account? "}
-					</Text>
-					<TouchableOpacity onPress={() => setIsSignUpMode(!isSignUpMode)} disabled={loading}>
-						<Text style={[styles.subTextWhite, { fontSize: 20, textShadowRadius: 8 }]}>
-							{isSignUpMode ? "Log In" : "Sign Up"}
+					<InputField
+						label="Email"
+						value={email}
+						onChangeText={setEmail}
+						autoCapitalize="none"
+					/>
+
+					<InputField
+						label="Password"
+						value={password}
+						onChangeText={setPassword}
+						secureTextEntry
+					/>
+
+					{/* Hide 'Remember Me' and 'Forgot Password' during Sign Up */}
+					{!isSignUpMode && (
+						<View style={styles.optionsRow}>
+							<TouchableOpacity
+								style={styles.checkboxRow}
+								onPress={toggleRememberMe}
+								activeOpacity={0.7}
+							>
+								<View style={[styles.checkbox, isRememberMe && styles.checkboxChecked]}>
+									{isRememberMe && <FontAwesome5 name="check" size={10} color="#1b1429" />}
+								</View>
+								<Text style={[styles.subText, { fontSize: 14 }]}>Remember me</Text>
+							</TouchableOpacity>
+							<TouchableOpacity onPress={() => setIsForgotPasswordOpen(true)}>
+								<Text style={[styles.subText, { fontSize: 14 }]}>Forgot Password?</Text>
+							</TouchableOpacity>
+						</View>
+					)}
+
+					<View style={{ marginTop: isSignUpMode ? 20 : 0, marginBottom: 30 }}>
+						{loading ? (
+							<ActivityIndicator size="large" color="#d8b4e2" />
+						) : (
+							<MenuButton
+								title={isSignUpMode ? "CREATE ACCOUNT" : "LOG IN"}
+								isThin
+								onPress={handleSubmit}
+							/>
+						)}
+					</View>
+
+					<View style={styles.signUpRow}>
+						<Text style={styles.subText}>
+							{isSignUpMode ? "Already have an account? " : "Don't have an account? "}
 						</Text>
-					</TouchableOpacity>
+						<TouchableOpacity onPress={() => setIsSignUpMode(!isSignUpMode)} disabled={loading}>
+							<Text style={[styles.subTextWhite, { fontSize: 20, textShadowRadius: 8 }]}>
+								{isSignUpMode ? "Log In" : "Sign Up"}
+							</Text>
+						</TouchableOpacity>
+					</View>
 				</View>
-			</View>
 
-			<ForgotPasswordModal
-				visible={isForgotPasswordOpen}
-				onClose={() => setIsForgotPasswordOpen(false)}
-				onSubmit={handleForgotPasswordSubmit}
-			/>
-		</View>
+				<ForgotPasswordModal
+					visible={isForgotPasswordOpen}
+					onClose={() => setIsForgotPasswordOpen(false)}
+					onSubmit={handleForgotPasswordSubmit}
+				/>
+			</View>
+		</KeyboardAvoidingView>
 	);
 };
 
