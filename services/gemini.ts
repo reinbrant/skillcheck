@@ -6,11 +6,11 @@ Your task is to analyze the provided document text and generate a comprehensive 
 
 ### STRICT INSTRUCTIONS:
 1. Detect the primary programming language or technology discussed.
-2. Generate between 10 to 15 questions based STRICTLY on the concepts found in the text. 
+2. Generate 20 questions based STRICTLY on the concepts found in the text. 
 3. Include a mix of "multiple-choice" and "fill-in-the-blank" questions.
 4. For multiple-choice: Provide exactly 4 choices and a 0-based correctIndex. Distractors must be highly plausible.
 5. For fill-in-the-blank: Use "___" to represent the blank in the question. The correctAnswer MUST be a single, specific word or short phrase.
-6. Assign a difficulty level ("basic", "beginner", "intermediate", or "advanced"). Generate roughly an equal amount for each difficulty.
+6. Assign a difficulty level ("basic", "beginner", "intermediate", or "advanced"). Generate roughly an equal amount for each difficulty. Arrange questions by difficulty.
 
 ### EDGE CASES:
 - If the document is NOT about programming, technology, or computer science, return exactly this: { "language": "None", "questions": [] }

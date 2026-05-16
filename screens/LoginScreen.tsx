@@ -137,7 +137,6 @@ export const LoginScreen = () => {
 	};
 
 	return (
-		<KeyboardAvoidingView>
 			<View style={styles.container}>
 				<View style={styles.logoContainer}>
 					<Image
@@ -221,7 +220,6 @@ export const LoginScreen = () => {
 					onSubmit={handleForgotPasswordSubmit}
 				/>
 			</View>
-		</KeyboardAvoidingView>
 	);
 };
 

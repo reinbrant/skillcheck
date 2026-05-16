@@ -7,9 +7,10 @@ import { supabase } from "../services/supabase";
 
 interface UploadScreenProps {
 	onBack: () => void;
+	onSuccess: () => void;
 }
 
-export const UploadScreen: React.FC<UploadScreenProps> = ({ onBack }) => {
+export const UploadScreen: React.FC<UploadScreenProps> = ({ onBack, onSuccess, }) => {
 	const [isBackHovered, setIsBackHovered] = useState(false);
 	const [fileUri, setFileUri] = useState<string | null>(null);
 	const [fileName, setFileName] = useState<string | null>(null);

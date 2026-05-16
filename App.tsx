@@ -3,7 +3,7 @@ import { StyleSheet, StatusBar, Alert, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useFonts } from "expo-font";
 import * as Linking from 'expo-linking';
-import AsyncStorage from "@react-native-async-storage/async-storage"; // <-- Imported AsyncStorage
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Services
 import { supabase } from "./services/supabase";
@@ -13,7 +13,6 @@ import { quizService } from "./services/quizService";
 import { LoginScreen } from "./screens/LoginScreen";
 import { MainMenu } from "./screens/MainMenu";
 import { LoadPathScreen } from "./screens/LoadPathScreen";
-import { PathDifficultyScreen } from "./screens/PathDifficultyScreen";
 import { GameplayScreen } from "./screens/GameplayScreen";
 import { LeaderboardScreen } from "./screens/Leaderboard";
 import { ResetPasswordScreen } from "./screens/ResetPasswordScreen";
@@ -27,14 +26,11 @@ export default function App() {
 
 	// --- Global Navigation & App State ---
 	const [currentScreen, setCurrentScreen] = useState<
-		"Login" | "MainMenu" | "LoadPath" | "PathDifficulty" | "Gameplay" | "Leaderboard" | "ResetPassword" | "Upload"
+		"Login" | "MainMenu" | "LoadPath" | "Gameplay" | "Leaderboard" | "ResetPassword" | "Upload"
 	>("Login");
 
 	const [selectedQuizId, setSelectedQuizId] = useState<string>("");
 	const [selectedPathTitle, setSelectedPathTitle] = useState<string>("");
-	const [selectedDifficulty, setSelectedDifficulty] = useState<
-		"basic" | "beginner" | "intermediate" | "advanced"
-	>("basic");
 
 	// --- Supabase Auth Listener ---
 	useEffect(() => {
@@ -81,13 +77,12 @@ export default function App() {
 					setSelectedQuizId(newQuizId);
 					setSelectedPathTitle("Imported Path"); 
 					
-					// Save to local storage for the Continue button
 					try {
 						await AsyncStorage.setItem("last_quiz_id", newQuizId);
 						await AsyncStorage.setItem("last_quiz_title", "Imported Path");
 					} catch(e) {}
 
-					setCurrentScreen("PathDifficulty");
+					setCurrentScreen("Gameplay");
 
 				} catch (error: any) {
 					Alert.alert("Import Failed", error.message);
@@ -98,7 +93,6 @@ export default function App() {
 		handleDeepLink();
 	}, [url]);
 
-	// --- Wait for fonts to load ---
 	if (!fontsLoaded) {
 		return <View style={styles.background} />;
 	}
@@ -119,10 +113,9 @@ export default function App() {
 						onNavigateToLoadPath={() => setCurrentScreen("LoadPath")}
 						onNavigateToNewPath={() => setCurrentScreen("Upload")}
 						onNavigateToContinue={(id: string, title: string) => {
-							// Push them directly into the difficulty selector
 							setSelectedQuizId(id);
 							setSelectedPathTitle(title);
-							setCurrentScreen("PathDifficulty");
+							setCurrentScreen("Gameplay");
 						}}
 					/>
 				);
@@ -141,32 +134,14 @@ export default function App() {
 						onPathSelect={async (id: string, title: string) => {
 							setSelectedQuizId(id);
 							setSelectedPathTitle(title);
-							
-							// Save to local storage the moment they open a path
 							try {
 								await AsyncStorage.setItem("last_quiz_id", id);
 								await AsyncStorage.setItem("last_quiz_title", title);
-							} catch (e) {
-								console.error("Failed to save last played", e);
-							}
+							} catch (e) {}
 
-							setCurrentScreen("PathDifficulty");
-						}}
-						onBack={() => setCurrentScreen("MainMenu")} 
-					/>
-				);
-
-			case "PathDifficulty":
-				return (
-					<PathDifficultyScreen
-						quizId={selectedQuizId}
-						pathTitle={selectedPathTitle}
-						onBack={() => setCurrentScreen("LoadPath")}
-						onViewLeaderboard={() => setCurrentScreen("Leaderboard")}
-						onPlay={(difficulty: "basic" | "beginner" | "intermediate" | "advanced") => {
-							setSelectedDifficulty(difficulty);
 							setCurrentScreen("Gameplay");
 						}}
+						onBack={() => setCurrentScreen("MainMenu")} 
 					/>
 				);
 
@@ -175,9 +150,7 @@ export default function App() {
 					<GameplayScreen
 						quizId={selectedQuizId}
 						pathTitle={selectedPathTitle}
-						difficulty={selectedDifficulty}
-						onBack={() => setCurrentScreen("PathDifficulty")}
-						onSelectLevel={() => setCurrentScreen("LoadPath")}
+						onBack={() => setCurrentScreen("LoadPath")}
 						onGoToLeaderboard={() => setCurrentScreen("Leaderboard")}
 					/>
 				);
@@ -187,7 +160,8 @@ export default function App() {
 					<LeaderboardScreen
 						quizId={selectedQuizId}
 						pathTitle={selectedPathTitle}
-						onBack={() => setCurrentScreen("PathDifficulty")}
+						// Fixed routing to return safely to Main Menu instead of missing screen
+						onBack={() => setCurrentScreen("MainMenu")}
 					/>
 				);
 

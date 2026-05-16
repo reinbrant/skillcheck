@@ -1,148 +1,207 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
 	View,
 	Text,
 	StyleSheet,
 	Pressable,
-	Image,
+	TextInput,
 	ActivityIndicator,
 	Alert,
-	TextInput,
+	KeyboardAvoidingView,
+	Platform,
+	Animated,
+	Easing,
+	ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ResultModal } from "../components/ResultModal";
+import { MenuButton } from "../components/MenuButton";
 import { supabase } from "../services/supabase";
-import { quizService } from "../services/quizService";
-import { MenuButton } from "../components/MenuButton"; // <-- Imported for the Submit button
 
 interface GameplayScreenProps {
 	quizId: string;
 	pathTitle: string;
-	difficulty: "basic" | "beginner" | "intermediate" | "advanced";
 	onBack: () => void;
-	onSelectLevel: () => void;
 	onGoToLeaderboard: () => void;
 }
 
 export const GameplayScreen: React.FC<GameplayScreenProps> = ({
 	quizId,
 	pathTitle,
-	difficulty,
 	onBack,
-	onSelectLevel,
 	onGoToLeaderboard,
 }) => {
-	const [isBackHovered, setIsBackHovered] = useState(false);
-	
-	// Game State
 	const [questions, setQuestions] = useState<any[]>([]);
 	const [currentIndex, setCurrentIndex] = useState(0);
-	const [score, setScore] = useState(0);
-	const [timeLeft, setTimeLeft] = useState(60); 
-	const [gameState, setGameState] = useState<"loading" | "playing" | "victory" | "defeat">("loading");
+	const [isLoading, setIsLoading] = useState(true);
 
-	// Feedback States
-	const [feedbackState, setFeedbackState] = useState<"idle" | "correct" | "wrong">("idle");
-	const [selectedChoiceIndex, setSelectedChoiceIndex] = useState<number | null>(null);
-	
-	// Fill-in-the-blank State
-	const [textInput, setTextInput] = useState("");
+	const [playerHP, setPlayerHP] = useState(100);
+	const [enemyHP, setEnemyHP] = useState(100);
+	const [timeLeft, setTimeLeft] = useState(120);
+
+	const [fitbAnswer, setFitbAnswer] = useState("");
+	const [isGameOver, setIsGameOver] = useState(false);
+	const [showResult, setShowResult] = useState(false);
+	const [isVictory, setIsVictory] = useState(false);
+	const [isAnimating, setIsAnimating] = useState(false);
+
+	// --- ANIMATION VALUES ---
+	const idleAnim = useRef(new Animated.Value(0)).current;
+	const shakeAnim = useRef(new Animated.Value(0)).current;
+	const successFlashAnim = useRef(new Animated.Value(0)).current;
+
+	const enemyFlashAnim = useRef(new Animated.Value(0)).current;
+	const playerFlashAnim = useRef(new Animated.Value(0)).current;
+
+	const enemyDmgAnim = useRef(new Animated.Value(0)).current;
+	const playerDmgAnim = useRef(new Animated.Value(0)).current;
+
+	const [enemyDmgNum, setEnemyDmgNum] = useState<number | null>(null);
+	const [playerDmgNum, setPlayerDmgNum] = useState<number | null>(null);
+
+	// Start Idle Animation
+	useEffect(() => {
+		Animated.loop(
+			Animated.sequence([
+				Animated.timing(idleAnim, { toValue: 1, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+				Animated.timing(idleAnim, { toValue: 0, duration: 1500, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+			])
+		).start();
+	}, []);
 
 	useEffect(() => {
-		const loadQuiz = async () => {
-			try {
-				const data = await quizService.fetchQuiz(quizId);
-				const filtered = data.quiz_json.questions.filter((q: any) => q.difficulty === difficulty);
-				setQuestions(filtered);
-				setGameState("playing");
-			} catch (error) {
-				console.error("Failed to load quiz", error);
-				setGameState("playing");
+		const fetchQuiz = async () => {
+			setIsLoading(true);
+			const { data, error } = await supabase
+				.from("quizzes")
+				.select("quiz_json")
+				.eq("id", quizId)
+				.single();
+
+			if (error || !data) {
+				Alert.alert("Error", "Could not load the battle.");
+				onBack();
+				return;
 			}
+
+			const parsed = typeof data.quiz_json === "string" ? JSON.parse(data.quiz_json) : data.quiz_json;
+			let qList = parsed.questions || [];
+
+			const diffValues: Record<string, number> = { basic: 1, beginner: 2, intermediate: 3, advanced: 4 };
+			qList.sort((a: any, b: any) => (diffValues[a.difficulty] || 0) - (diffValues[b.difficulty] || 0));
+
+			setQuestions(qList);
+			setIsLoading(false);
 		};
-		loadQuiz();
-	}, [quizId, difficulty]);
+		fetchQuiz();
+	}, [quizId]);
 
 	useEffect(() => {
-		if (gameState !== "playing") return;
-
+		if (isLoading || isGameOver) return;
 		const timer = setInterval(() => {
 			setTimeLeft((prev) => {
 				if (prev <= 1) {
 					clearInterval(timer);
-					handleGameOver(false);
+					handleEndGame("time_out", playerHP, enemyHP);
 					return 0;
 				}
 				return prev - 1;
 			});
 		}, 1000);
-
 		return () => clearInterval(timer);
-	}, [gameState]);
+	}, [isLoading, isGameOver, playerHP, enemyHP]);
 
-	// Accepts either a choice index or a string answer
-	const handleAnswer = (answer: number | string) => {
-		if (feedbackState !== "idle") return; // Prevent double clicks
+	const triggerCorrectEffects = (dmg: number) => {
+		setEnemyDmgNum(dmg);
+		enemyDmgAnim.setValue(0);
+		Animated.parallel([
+			Animated.sequence([
+				Animated.timing(successFlashAnim, { toValue: 1, duration: 100, useNativeDriver: true }),
+				Animated.timing(successFlashAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+			]),
+			Animated.sequence([
+				Animated.timing(enemyFlashAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
+				Animated.timing(enemyFlashAnim, { toValue: 0, duration: 80, useNativeDriver: true }),
+				Animated.timing(enemyFlashAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
+				Animated.timing(enemyFlashAnim, { toValue: 0, duration: 80, useNativeDriver: true }),
+			]),
+			Animated.timing(enemyDmgAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+		]).start(() => setEnemyDmgNum(null));
+	};
 
-		const currentQuestion = questions[currentIndex];
+	const triggerWrongEffects = (dmg: number) => {
+		setPlayerDmgNum(dmg);
+		playerDmgAnim.setValue(0);
+		Animated.parallel([
+			Animated.sequence([
+				Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+				Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+				Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+				Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+				Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+			]),
+			Animated.sequence([
+				Animated.timing(playerFlashAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
+				Animated.timing(playerFlashAnim, { toValue: 0, duration: 80, useNativeDriver: true }),
+				Animated.timing(playerFlashAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
+				Animated.timing(playerFlashAnim, { toValue: 0, duration: 80, useNativeDriver: true }),
+			]),
+			Animated.timing(playerDmgAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+		]).start(() => setPlayerDmgNum(null));
+	};
+
+	const handleAnswer = (answer: string | number) => {
+		if (isGameOver || isAnimating) return;
+		setIsAnimating(true);
+
+		const q = questions[currentIndex];
 		let isCorrect = false;
 
-		if (currentQuestion.type === "fill-in-the-blank") {
-			// Case-insensitive comparison and trim whitespace
-			const userAnswer = (answer as string).trim().toLowerCase();
-			const correctAnswer = currentQuestion.correctAnswer.trim().toLowerCase();
-			isCorrect = userAnswer === correctAnswer;
+		if (q.type === "multiple-choice") {
+			isCorrect = answer === q.correctIndex;
 		} else {
-			isCorrect = answer === currentQuestion.correctIndex;
-			setSelectedChoiceIndex(answer as number);
+			isCorrect = String(answer).trim().toLowerCase() === String(q.correctAnswer).trim().toLowerCase();
 		}
-		
+
+		// Scaling check: With 20 questions, 100/20 = 5. Ceil handles odd numbers securely.
+		const dmgAmount = Math.ceil(100 / questions.length);
+		let newEnemyHP = enemyHP;
+		let newPlayerHP = playerHP;
+
 		if (isCorrect) {
-			setFeedbackState("correct");
-			
-			// Dynamic Scoring: Base score based on 4-tier difficulty + Time Bonus
-			let baseScore = 10;
-			if (difficulty === "advanced") baseScore = 40;
-			else if (difficulty === "intermediate") baseScore = 30;
-			else if (difficulty === "beginner") baseScore = 20;
-
-			const timeBonus = Math.max(0, timeLeft);
-			setScore((prev) => prev + baseScore + timeBonus);
+			newEnemyHP = Math.max(0, enemyHP - dmgAmount);
+			setEnemyHP(newEnemyHP);
+			triggerCorrectEffects(dmgAmount);
 		} else {
-			setFeedbackState("wrong");
+			newPlayerHP = Math.max(0, playerHP - dmgAmount);
+			setPlayerHP(newPlayerHP);
+			triggerWrongEffects(dmgAmount);
 		}
 
-		// Wait 1.5s to show feedback before moving to next question
 		setTimeout(() => {
-			setFeedbackState("idle");
-			setSelectedChoiceIndex(null);
-			setTextInput(""); // Clear text input for the next question
-
-			if (currentIndex + 1 < questions.length) {
-				setCurrentIndex((prev) => prev + 1);
+			if (newEnemyHP <= 0) {
+				handleEndGame("victory", newPlayerHP, 0);
+			} else if (newPlayerHP <= 0) {
+				handleEndGame("defeat", 0, newEnemyHP);
+			} else if (currentIndex + 1 < questions.length) {
+				setCurrentIndex(currentIndex + 1);
+				setFitbAnswer("");
 			} else {
-				handleGameOver(true);
+				handleEndGame("out_of_questions", newPlayerHP, newEnemyHP);
 			}
-		}, 1500); // Slightly longer timeout to read the correct answer if wrong
+			setIsAnimating(false);
+		}, 1200);
 	};
 
-	const handleTextSubmit = () => {
-		if (!textInput.trim()) return;
-		handleAnswer(textInput);
-	};
+	const handleEndGame = (reason: string, finalPlayerHP: number, finalEnemyHP: number) => {
+		setIsGameOver(true);
+		let win = false;
+		if (reason === "victory" || finalEnemyHP <= 0) win = true;
+		else if (reason === "defeat" || finalPlayerHP <= 0) win = false;
+		else win = finalPlayerHP > finalEnemyHP;
 
-	const handleGameOver = async (victory: boolean) => {
-		setGameState(victory ? "victory" : "defeat");
-		
-		try {
-			const { data: { user } } = await supabase.auth.getUser();
-			if (user) {
-				await quizService.submitAttempt(quizId, user.id, score, difficulty);
-			}
-		} catch (error: any) {
-			console.log("Failed to save score", error);
-			Alert.alert("Save Error", error.message);
-		}
+		setIsVictory(win);
+		setShowResult(true);
 	};
 
 	const formatTime = (seconds: number) => {
@@ -151,206 +210,220 @@ export const GameplayScreen: React.FC<GameplayScreenProps> = ({
 		return `${m}:${s < 10 ? "0" : ""}${s}`;
 	};
 
-	if (gameState === "loading") {
+	if (isLoading) {
 		return (
-			<View style={styles.loadingContainer}>
+			<SafeAreaView style={styles.loadingContainer}>
 				<ActivityIndicator size="large" color="#d8b4e2" />
-			</View>
+				<Text style={styles.loadingText}>A wild challenge approaches...</Text>
+			</SafeAreaView>
 		);
 	}
 
-	const currentQuestion = questions[currentIndex];
+	const q = questions[currentIndex];
+
+	const enemyIdleY = idleAnim.interpolate({ inputRange: [0, 1], outputRange: [-8, 8] });
+	const playerIdleY = idleAnim.interpolate({ inputRange: [0, 1], outputRange: [8, -8] });
+
+	const dmgRiseY = (anim: Animated.Value) => anim.interpolate({ inputRange: [0, 1], outputRange: [0, -50] });
+	const dmgFade = (anim: Animated.Value) => anim.interpolate({ inputRange: [0, 0.7, 1], outputRange: [1, 1, 0] });
 
 	return (
-		<SafeAreaView style={styles.safeArea}>
-			<View style={styles.container}>
-				{/* Header */}
-				<View style={styles.header}>
-					<Pressable onPress={onBack} style={({ pressed }) => [styles.backButton, (pressed || isBackHovered) && styles.backButtonHovered]}>
-						<Text style={styles.backArrow}>←</Text>
-					</Pressable>
-					<Text style={styles.headerTitle}> {pathTitle.toUpperCase()}</Text>
-				</View>
-
-				{/* Top Info Bar */}
-				<View style={styles.topInfoBar}>
-					<View>
-						<Text style={styles.infoText}>
-							Question {currentIndex + 1} of {questions.length}
-						</Text>
-						<Text style={styles.infoTextSub}>
-							{difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
-						</Text>
-					</View>
+		<SafeAreaView style={{ flex: 1, backgroundColor: "#1b1226" }} edges={['top', 'bottom']}>
+			<KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+				<Animated.View style={[styles.mainContainer, { transform: [{ translateX: shakeAnim }] }]}>
 					
-					{/* Score Tracker */}
-					<View style={{ alignItems: "flex-end" }}>
-						<Text style={styles.timerText}>SCORE: {score}</Text>
-						<Text style={[styles.timerText, timeLeft <= 10 && styles.timerDanger]}>
-							⏳ {formatTime(timeLeft)}
+					<Animated.View style={[styles.greenFlashOverlay, { opacity: successFlashAnim }]} pointerEvents="none" />
+
+					{/* Top HUD */}
+					<View style={styles.header}>
+						<Pressable onPress={onBack} disabled={isAnimating} style={{ padding: 10 }}>
+							<Text style={styles.backArrow}>←</Text>
+						</Pressable>
+						<Text style={styles.pathTitleText} numberOfLines={1} adjustsFontSizeToFit>BATTLE</Text>
+						<Text style={[styles.timerText, timeLeft <= 30 && { color: "#ff4444" }]}>
+							{formatTime(timeLeft)}
 						</Text>
 					</View>
-				</View>
 
-				{/* Question Box */}
-				<View style={styles.questionBox}>
-					<Image source={require("../assets/Button_Texture1.jpg")} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-					<View style={styles.purpleTintOverlay} />
-					<Text style={styles.questionText}>{currentQuestion?.question}</Text> 
-				</View>
-
-				{/* Choices or Text Input depending on type */}
-				<View style={styles.choicesContainer}>
-					{currentQuestion?.type === "fill-in-the-blank" ? (
-						<View style={styles.fitbContainer}>
-							<TextInput
-								style={[
-									styles.textInput,
-									feedbackState === "correct" && styles.textInputCorrect,
-									feedbackState === "wrong" && styles.textInputWrong
-								]}
-								value={textInput}
-								onChangeText={setTextInput}
-								placeholder="Type your answer here..."
-								placeholderTextColor="#8a6b96"
-								editable={feedbackState === "idle"}
-								autoCapitalize="none"
-								autoCorrect={false}
-								onSubmitEditing={handleTextSubmit}
-							/>
-							
-							{/* Show correction if they got it wrong */}
-							{feedbackState === "wrong" && (
-								<Text style={styles.correctionText}>
-									Correct Answer: {currentQuestion.correctAnswer}
+					{/* BATTLE ARENA (Flex 1 to take remaining space) */}
+					<View style={styles.arena}>
+						
+						{/* Enemy Side */}
+						<View style={styles.enemySide}>
+							<View style={styles.hpBox}>
+								<Text style={styles.combatantName} numberOfLines={1} adjustsFontSizeToFit>
+									{pathTitle}
 								</Text>
-							)}
+								<View style={styles.hpBarBg}>
+									<View style={[styles.hpBarFill, { width: `${enemyHP}%`, backgroundColor: "#ff4444" }]} />
+									<Text style={styles.hpNumberText}>{enemyHP}/100</Text>
+									<Animated.View style={[styles.flashOverlay, { opacity: enemyFlashAnim }]} />
+								</View>
+							</View>
 
-							<View style={{ marginTop: 20, width: "100%", alignItems: "center" }}>
-								<MenuButton 
-									title="SUBMIT" 
-									onPress={handleTextSubmit} 
-									isThin 
-								/>
+							<Animated.View style={[styles.orbWrapper, { transform: [{ translateY: enemyIdleY }] }]}>
+								<View style={[styles.enemyOrb]}>
+									<View style={styles.enemyOrbCore} />
+									<Animated.View style={[styles.flashOverlay, { borderRadius: 45, opacity: enemyFlashAnim }]} />
+								</View>
+								{enemyDmgNum && (
+									<Animated.Text style={[styles.damageNumberText, { opacity: dmgFade(enemyDmgAnim), transform: [{ translateY: dmgRiseY(enemyDmgAnim) }] }]}>
+										-{enemyDmgNum}
+									</Animated.Text>
+								)}
+							</Animated.View>
+						</View>
+
+						{/* Player Side */}
+						<View style={styles.playerSide}>
+							<Animated.View style={[styles.orbWrapper, { transform: [{ translateY: playerIdleY }] }]}>
+								<View style={[styles.playerOrb]}>
+									<View style={styles.playerOrbCore} />
+									<Animated.View style={[styles.flashOverlay, { borderRadius: 45, opacity: playerFlashAnim }]} />
+								</View>
+								{playerDmgNum && (
+									<Animated.Text style={[styles.damageNumberText, { color: "#ff4444", opacity: dmgFade(playerDmgAnim), transform: [{ translateY: dmgRiseY(playerDmgAnim) }] }]}>
+										-{playerDmgNum}
+									</Animated.Text>
+								)}
+							</Animated.View>
+
+							<View style={styles.hpBox}>
+								<Text style={styles.combatantName}>You</Text>
+								<View style={styles.hpBarBg}>
+									<View style={[styles.hpBarFill, { 
+										width: `${playerHP}%`, 
+										backgroundColor: playerHP > 50 ? "#44ff44" : playerHP > 20 ? "#ffaa00" : "#ff4444" 
+									}]} />
+									<Text style={styles.hpNumberText}>{playerHP}/100</Text>
+									<Animated.View style={[styles.flashOverlay, { opacity: playerFlashAnim }]} />
+								</View>
 							</View>
 						</View>
-					) : (
-						currentQuestion?.choices.map((choice: string, index: number) => {
-							let status: "default" | "correct" | "wrong" | "dimmed" = "default";
-							if (feedbackState !== "idle") {
-								if (index === currentQuestion.correctIndex) {
-									status = "correct";
-								} else if (index === selectedChoiceIndex) {
-									status = "wrong";
-								} else {
-									status = "dimmed";
-								}
+					</View>
+
+					{/* QUESTION PANEL (Max Height to prevent off-screen pushes) */}
+					<View style={styles.questionPanel}>
+						<Text style={styles.questionCounter}>
+							Question {currentIndex + 1} of {questions.length} • {q.difficulty.toUpperCase()}
+						</Text>
+						
+						{/* ScrollView protects against long text overflows */}
+						<ScrollView 
+							contentContainerStyle={styles.scrollContent}
+							showsVerticalScrollIndicator={false}
+							bounces={false}
+						>
+							<Text style={styles.questionText}>{q.question}</Text>
+
+							{q.type === "multiple-choice" ? (
+								<View style={styles.choicesContainer}>
+									{q.choices.map((choice: string, idx: number) => (
+										<Pressable 
+											key={idx} 
+											style={[styles.choiceButton, isAnimating && styles.disabledButton]} 
+											onPress={() => handleAnswer(idx)}
+											disabled={isAnimating}
+										>
+											<View style={styles.buttonDarkOverlay} />
+											<View style={styles.buttonInnerGlow} />
+											<Text style={styles.choiceText}>{choice}</Text>
+										</Pressable>
+									))}
+								</View>
+							) : (
+								<View style={styles.fitbContainer}>
+									<TextInput
+										style={[styles.textInput, isAnimating && { opacity: 0.5 }]}
+										placeholder="Type your answer here..."
+										placeholderTextColor="rgba(255,255,255,0.3)"
+										value={fitbAnswer}
+										onChangeText={setFitbAnswer}
+										onSubmitEditing={() => handleAnswer(fitbAnswer)}
+										autoCapitalize="none"
+										editable={!isAnimating}
+									/>
+									<View style={{ width: "100%", marginTop: 15 }}>
+										<MenuButton 
+											title={isAnimating ? "ATTACKING..." : "ATTACK"} 
+											onPress={() => handleAnswer(fitbAnswer)} 
+											isThin 
+										/>
+									</View>
+								</View>
+							)}
+						</ScrollView>
+					</View>
+
+					<ResultModal
+						visible={showResult}
+						isVictory={isVictory}
+						score={playerHP}
+						timeLeft={formatTime(timeLeft)}
+						onSelectLevel={onBack}
+						onNextOrRetry={() => {
+							if (isVictory) {
+								onGoToLeaderboard();
+							} else {
+								setPlayerHP(100);
+								setEnemyHP(100);
+								setTimeLeft(120);
+								setCurrentIndex(0);
+								setIsGameOver(false);
+								setShowResult(false);
+								setIsAnimating(false);
 							}
-
-							return (
-								<ChoiceButton
-									key={index}
-									title={choice}
-									status={status}
-									onPress={() => handleAnswer(index)}
-								/>
-							);
-						})
-					)}
-				</View>
-			</View>
-
-			<ResultModal
-				visible={gameState === "victory" || gameState === "defeat"}
-				isVictory={gameState === "victory"}
-				score={score}
-				timeLeft={formatTime(timeLeft)}
-				onSelectLevel={onSelectLevel}
-				onNextOrRetry={() => {
-					if (gameState === "victory") {
-						onGoToLeaderboard();
-					} else {
-						setCurrentIndex(0);
-						setScore(0);
-						setTimeLeft(60);
-						setGameState("playing");
-					}
-				}}
-			/>
+						}}
+					/>
+				</Animated.View>
+			</KeyboardAvoidingView>
 		</SafeAreaView>
 	);
 };
 
-const ChoiceButton = ({ 
-	title, 
-	onPress, 
-	status 
-}: { 
-	title: string; 
-	onPress: () => void;
-	status: "default" | "correct" | "wrong" | "dimmed";
-}) => {
-	const [isHovered, setIsHovered] = useState(false);
-
-	const getGlowColor = () => {
-		if (status === "correct") return "rgba(76, 175, 80, 0.6)"; 
-		if (status === "wrong") return "rgba(244, 67, 54, 0.6)"; 
-		return "rgba(255, 255, 255, 0.2)"; 
-	};
-
-	const getBorderColor = () => {
-		if (status === "correct") return "#4caf50";
-		if (status === "wrong") return "#f44336";
-		return "#d8b4e2";
-	};
-
-	return (
-		<Pressable
-			onPress={onPress}
-			onHoverIn={() => setIsHovered(true)}
-			onHoverOut={() => setIsHovered(false)}
-			style={({ pressed }) => [
-				styles.choiceButtonWrapper,
-				(pressed || isHovered) && { transform: [{ scale: 0.98 }] },
-				status === "dimmed" && { opacity: 0.5 }
-			]}
-		>
-			<View style={[styles.choiceButtonInner, { borderColor: getBorderColor() }]}>
-				<Image source={require("../assets/Button_Texture1.jpg")} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-				<View style={styles.buttonDarkOverlay} />
-				<View style={[styles.buttonInnerGlow, { borderColor: getGlowColor() }]} />
-				<Text style={[styles.choiceText, (status === "correct" || status === "wrong") && { color: getBorderColor() }]}>{title}</Text>
-			</View>
-		</Pressable>
-	);
-};
-
 const styles = StyleSheet.create({
-	safeArea: { flex: 1, backgroundColor: "transparent" },
-	container: { flex: 1, width: "100%", alignItems: "center" },
+	mainContainer: { flex: 1 },
 	loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-	header: { width: "100%", paddingHorizontal: 25, paddingTop: 20, flexDirection: "row", alignItems: "center" },
-	backButton: { paddingVertical: 10, paddingRight: 15 },
-	backButtonHovered: { opacity: 0.6, transform: [{ scale: 0.9 }] },
+	loadingText: { color: "#d8b4e2", fontFamily: "BreatheFireIII", fontSize: 24, marginTop: 20 },
+	greenFlashOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(68, 255, 68, 0.2)", zIndex: 1 },
+	flashOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(255, 255, 255, 0.8)", zIndex: 5 },
+
+	header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 15, paddingTop: 10, zIndex: 10 },
 	backArrow: { color: "#ffffff", fontSize: 28, fontWeight: "bold", textShadowColor: "#d8b4e2", textShadowRadius: 8 },
-	headerTitle: { color: "#ffffff", fontFamily: "BreatheFireIII", fontSize: 36, textShadowColor: "rgba(216, 180, 226, 0.8)", textShadowRadius: 10 },
-	topInfoBar: { width: "85%", flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 20, marginBottom: 30, borderBottomWidth: 1, borderColor: "rgba(216, 180, 226, 0.5)", paddingBottom: 10 },
-	infoText: { color: "#d8b4e2", fontFamily: "BreatheFireIII", fontSize: 16 },
-	infoTextSub: { color: "#8a6b96", fontFamily: "BreatheFireIII", fontSize: 14 },
-	timerText: { color: "#d8b4e2", fontFamily: "BreatheFireIII", fontSize: 18, textAlign: "right" },
-	timerDanger: { color: "#ff4d4d" },
-	questionBox: { width: "85%", minHeight: 180, backgroundColor: "#1b1226", borderWidth: 2, borderColor: "rgba(216, 180, 226, 0.6)", justifyContent: "center", alignItems: "center", padding: 20, marginBottom: 40, overflow: "hidden", shadowColor: "#d8b4e2", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 15, elevation: 10 },
-	purpleTintOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(35, 20, 50, 0.85)" },
-	questionText: { color: "#ffffff", fontSize: 22, fontFamily: "BreatheFireIII", textAlign: "center", lineHeight: 32, zIndex: 2 },
-	choicesContainer: { width: "85%", gap: 15 },
-	choiceButtonWrapper: { width: "100%", height: 55, shadowColor: "#d8b4e2", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5 },
-	choiceButtonInner: { flex: 1, borderWidth: 2, borderRadius: 4, overflow: "hidden", justifyContent: "center", alignItems: "center" },
+	pathTitleText: { flex: 1, textAlign: "center", color: "#ffffff", fontFamily: "BreatheFireIII", fontSize: 24, textShadowColor: "#000", textShadowRadius: 5 },
+	timerText: { color: "#ffffff", fontFamily: "BreatheFireIII", fontSize: 28, textShadowColor: "#000", textShadowRadius: 5 },
+
+	arena: { flex: 1, justifyContent: "space-evenly", paddingHorizontal: 20, zIndex: 2 },
+	enemySide: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", width: "100%" },
+	playerSide: { flexDirection: "row", justifyContent: "flex-start", alignItems: "center", width: "100%" },
+	
+	hpBox: { flexShrink: 1, backgroundColor: "rgba(20, 10, 30, 0.8)", padding: 10, borderWidth: 1, borderColor: "rgba(216, 180, 226, 0.5)", borderRadius: 8, maxWidth: 200, width: "100%" },
+	combatantName: { color: "#ffffff", fontFamily: "BreatheFireIII", fontSize: 18, marginBottom: 5 },
+	hpBarBg: { width: "100%", height: 16, backgroundColor: "#000", borderRadius: 8, overflow: "hidden", borderWidth: 1, borderColor: "#333", justifyContent: "center", alignItems: "center" },
+	hpBarFill: { position: "absolute", left: 0, top: 0, height: "100%", borderRadius: 6 },
+	hpNumberText: { color: "#ffffff", fontSize: 10, fontWeight: "bold", zIndex: 2, textShadowColor: "#000", textShadowRadius: 2 },
+	
+	orbWrapper: { position: "relative", justifyContent: "center", alignItems: "center", marginHorizontal: 15 },
+	enemyOrb: { width: 90, height: 90, borderRadius: 45, backgroundColor: "rgba(255, 68, 68, 0.2)", justifyContent: "center", alignItems: "center", borderWidth: 2, borderColor: "#ff4444", shadowColor: "#ff4444", shadowOpacity: 1, shadowRadius: 20, elevation: 10, overflow: "hidden" },
+	enemyOrbCore: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#ff4444" },
+	playerOrb: { width: 90, height: 90, borderRadius: 45, backgroundColor: "rgba(107, 40, 145, 0.3)", justifyContent: "center", alignItems: "center", borderWidth: 2, borderColor: "#d8b4e2", shadowColor: "#d8b4e2", shadowOpacity: 1, shadowRadius: 20, elevation: 10, overflow: "hidden" },
+	playerOrbCore: { width: 50, height: 50, borderRadius: 25, backgroundColor: "#d8b4e2" },
+	damageNumberText: { position: "absolute", top: -20, color: "#ffffff", fontFamily: "BreatheFireIII", fontSize: 36, textShadowColor: "#000", textShadowRadius: 5, zIndex: 20 },
+
+	// Restricted max height ensures the choices stay on screen
+	questionPanel: { maxHeight: "55%", backgroundColor: "#1b1226", borderTopWidth: 2, borderColor: "#d8b4e2", paddingHorizontal: 20, paddingTop: 15, paddingBottom: 10, borderTopLeftRadius: 20, borderTopRightRadius: 20, zIndex: 10 },
+	questionCounter: { color: "#d8b4e2", fontSize: 14, fontWeight: "bold", textAlign: "center", marginBottom: 10 },
+	
+	scrollContent: { paddingBottom: 20 },
+	questionText: { color: "#ffffff", fontSize: 20, fontFamily: "BreatheFireIII", textAlign: "center", lineHeight: 28, marginBottom: 15 },
+	
+	choicesContainer: { gap: 10 },
+	choiceButton: { width: "100%", minHeight: 55, paddingVertical: 10, paddingHorizontal: 15, borderRadius: 4, overflow: "hidden", justifyContent: "center", alignItems: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.4)" },
+	disabledButton: { opacity: 0.7 },
 	buttonDarkOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(20, 10, 30, 0.95)" },
-	buttonInnerGlow: { ...StyleSheet.absoluteFillObject, borderWidth: 1 },
-	choiceText: { color: "#ffffff", fontFamily: "BreatheFireIII", fontSize: 20, zIndex: 2 },
+	buttonInnerGlow: { ...StyleSheet.absoluteFillObject, borderWidth: 1, borderColor: "rgba(216, 180, 226, 0.2)" },
+	choiceText: { color: "#ffffff", fontFamily: "BreatheFireIII", fontSize: 18, zIndex: 2, textAlign: "center" },
+	
 	fitbContainer: { width: "100%", alignItems: "center" },
-	textInput: { width: "100%", backgroundColor: "#1b1226", color: "#ffffff", fontFamily: "BreatheFireIII", fontSize: 20, padding: 15, borderWidth: 2, borderColor: "#d8b4e2", borderRadius: 4, textAlign: "center", shadowColor: "#d8b4e2", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 },
-	textInputCorrect: { borderColor: "#4caf50", color: "#4caf50", shadowColor: "#4caf50" },
-	textInputWrong: { borderColor: "#f44336", color: "#f44336", shadowColor: "#f44336" },
-	correctionText: { color: "#f44336", fontFamily: "BreatheFireIII", fontSize: 18, marginTop: 15, textAlign: "center", textShadowColor: "rgba(244, 67, 54, 0.5)", textShadowRadius: 5 },
+	textInput: { width: "100%", backgroundColor: "rgba(0,0,0,0.5)", color: "#ffffff", fontFamily: "BreatheFireIII", fontSize: 20, padding: 15, borderWidth: 1, borderColor: "#d8b4e2", borderRadius: 4, textAlign: "center" },
 });
