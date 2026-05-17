@@ -22,12 +22,11 @@ There are two ways to experience SkillCheck. For the absolute best performance, 
 Running the app locally on your own device ensures smooth 60fps animations and a true mobile experience. We have included an automated script to make this entirely painless.
 
 **Setup Instructions:**
-1. Copy the project files to your PC. *(Note: You do not need to copy the `node_modules` or `.expo` folders).*
-2. Ensure the `start_skillcheck.bat` file is located exactly one folder level *above* (outside) the main `skillcheck` project folder.
-3. Double-click `start_skillcheck.bat`. 
+1. Ensure the `start_skillcheck.bat` file is located in the same folder.
+2. Double-click `start_skillcheck.bat`. 
    > *This script will automatically install all necessary dependencies, ensure Expo package compatibility, and boot up the local server.*
-4. Once the server starts, a large QR code will appear in your terminal.
-5. Open the **Expo Go** app on your phone (or use your iOS Camera) and scan the QR code to jump straight into the battle!
+3. Once the server starts, a large QR code will appear in your terminal.
+4. Open the **Expo Go** app on your phone (or use your iOS Camera) and scan the QR code to jump straight into the battle!
 
 ### Option B: Web Hosted (Alternative)
 If you don't want to install anything and just want a quick look at the app, you can view the web-compiled version here:
